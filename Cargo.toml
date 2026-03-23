@@ -15,10 +15,10 @@ path = "src/lib.rs"
 anyhow = "1"
 arboard = "3"
 chrono = "0.4"
-anstream = "0.6"
+anstream = "1"
 base64 = { version = "0.22", features = ["std"] }
 clap = { version = "4", features = ["derive"] }
-directories = "5"
+directories = "6"
 regex = "1"
 rustix = { version = "1", features = ["termios"] }
 serde = { version = "1", features = ["derive"] }
