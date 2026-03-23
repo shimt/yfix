@@ -1,0 +1,30 @@
+[package]
+name = "yfix"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "yfix"
+path = "src/main.rs"
+
+[lib]
+name = "yfix"
+path = "src/lib.rs"
+
+[dependencies]
+anyhow = "1"
+arboard = "3"
+anstream = "0.6"
+base64 = { version = "0.22", features = ["std"] }
+clap = { version = "4", features = ["derive"] }
+directories = "5"
+regex = "1"
+rustix = { version = "1", features = ["termios"] }
+serde = { version = "1", features = ["derive"] }
+serde_yaml = "0.9"
+tempfile = "3"
+terminal_size = "0.4"
+thiserror = "2"
+unicode-width = "0.2"
+
+[dev-dependencies]
