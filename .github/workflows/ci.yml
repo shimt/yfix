@@ -37,8 +37,10 @@ jobs:
         run: brew style Formula/yfix.rb
       - name: Tap and audit formula
         run: |
-          brew tap shimt/yfix https://github.com/shimt/yfix
-          brew audit yfix
+          brew tap shimt/yfix "$(pwd)"
+          brew audit shimt/yfix/yfix
+
+  cross-check:
     runs-on: ubuntu-latest
     strategy:
       matrix:
