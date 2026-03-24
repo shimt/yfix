@@ -10,7 +10,10 @@ impl OutputTarget for Stdout {
 
     fn write(&self, text: &str) -> Result<(), OutputError> {
         use std::io::Write;
-        std::io::stdout().write_all(text.as_bytes())?;
-        Ok(())
+        match std::io::stdout().write_all(text.as_bytes()) {
+            Ok(()) => Ok(()),
+            Err(e) if e.kind() == std::io::ErrorKind::BrokenPipe => Ok(()),
+            Err(e) => Err(OutputError::Io(e)),
+        }
     }
 }

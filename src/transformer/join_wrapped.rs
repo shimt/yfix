@@ -25,6 +25,26 @@ fn is_cjk(ch: Option<char>) -> bool {
     }
 }
 
+/// Returns true if the line starts with a structural block prefix
+/// (list item or blockquote) that should suppress join_wrapped merging.
+fn starts_with_list_prefix(line: &str) -> bool {
+    let trimmed = line.trim_start();
+    // Markdown unordered list: - , * , +
+    if trimmed.starts_with("- ") || trimmed.starts_with("* ") || trimmed.starts_with("+ ") {
+        return true;
+    }
+    // Blockquote: >
+    if trimmed.starts_with("> ") {
+        return true;
+    }
+    // Markdown ordered list: 1. , 2. , etc.
+    let digits: &str = trimmed.trim_start_matches(|c: char| c.is_ascii_digit());
+    if digits.starts_with(". ") && digits.len() < trimmed.len() {
+        return true;
+    }
+    false
+}
+
 pub struct JoinWrapped {
     pub wrap_width: usize,
 }
@@ -42,8 +62,12 @@ fn join_inner(text: &str, wrap_width: usize, mut warnings: Option<&mut Vec<Warni
         let width = UnicodeWidthStr::width(line);
 
         let next_is_non_empty = lines.get(i + 1).map(|l| !l.is_empty()).unwrap_or(false);
+        let next_is_list = lines
+            .get(i + 1)
+            .map(|l| starts_with_list_prefix(l))
+            .unwrap_or(false);
 
-        if width >= threshold && next_is_non_empty {
+        if width >= threshold && next_is_non_empty && !next_is_list {
             let mut joined = line.to_string();
             let mut j = i + 1;
             loop {
@@ -60,6 +84,11 @@ fn join_inner(text: &str, wrap_width: usize, mut warnings: Option<&mut Vec<Warni
                 j += 1;
                 let seg_width = UnicodeWidthStr::width(lines[j - 1]);
                 let next_exists = j < lines.len() && !lines[j].is_empty();
+                let next_is_list = if j < lines.len() {
+                    starts_with_list_prefix(lines[j])
+                } else {
+                    false
+                };
 
                 // Track relaxed threshold usage
                 if let Some(ref mut w) = warnings {
@@ -71,7 +100,7 @@ fn join_inner(text: &str, wrap_width: usize, mut warnings: Option<&mut Vec<Warni
                     }
                 }
 
-                if seg_width >= relaxed && next_exists {
+                if seg_width >= relaxed && next_exists && !next_is_list {
                     continue;
                 }
                 break;
@@ -247,6 +276,71 @@ mod tests {
             .warnings
             .iter()
             .any(|w| matches!(w, Warning::JoinNearMiss { .. })));
+    }
+
+    #[test]
+    fn does_not_join_list_items_unordered() {
+        let t = JoinWrapped { wrap_width: 20 };
+        let input = "12345678901234567890\n- item one\n- item two";
+        let result = t.transform(input).unwrap();
+        assert_eq!(result, "12345678901234567890\n- item one\n- item two");
+    }
+
+    #[test]
+    fn does_not_join_list_items_ordered() {
+        let t = JoinWrapped { wrap_width: 20 };
+        let input = "12345678901234567890\n1. first item\n2. second item";
+        let result = t.transform(input).unwrap();
+        assert_eq!(
+            result,
+            "12345678901234567890\n1. first item\n2. second item"
+        );
+    }
+
+    #[test]
+    fn does_not_join_indented_list_items() {
+        let t = JoinWrapped { wrap_width: 20 };
+        let input = "12345678901234567890\n  - sub item one\n  - sub item two";
+        let result = t.transform(input).unwrap();
+        assert_eq!(
+            result,
+            "12345678901234567890\n  - sub item one\n  - sub item two"
+        );
+    }
+
+    #[test]
+    fn does_not_join_blockquote() {
+        let t = JoinWrapped { wrap_width: 20 };
+        let input = "12345678901234567890\n> quoted text\n> more quoted";
+        let result = t.transform(input).unwrap();
+        assert_eq!(result, "12345678901234567890\n> quoted text\n> more quoted");
+    }
+
+    #[test]
+    fn breaks_continuation_at_list_item() {
+        let t = JoinWrapped { wrap_width: 20 };
+        let input = "12345678901234567890\nword wrapped at\n- list starts here";
+        let result = t.transform(input).unwrap();
+        assert_eq!(
+            result,
+            "12345678901234567890 word wrapped at\n- list starts here"
+        );
+    }
+
+    #[test]
+    fn long_list_item_joins_own_wrap() {
+        let t = JoinWrapped { wrap_width: 20 };
+        let input = "- abcdefghij1234567\ncontinuation text";
+        let result = t.transform(input).unwrap();
+        assert_eq!(result, "- abcdefghij1234567 continuation text");
+    }
+
+    #[test]
+    fn does_not_join_plus_list_items() {
+        let t = JoinWrapped { wrap_width: 20 };
+        let input = "12345678901234567890\n+ item one\n+ item two";
+        let result = t.transform(input).unwrap();
+        assert_eq!(result, "12345678901234567890\n+ item one\n+ item two");
     }
 
     #[test]

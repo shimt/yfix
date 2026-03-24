@@ -41,11 +41,18 @@ impl Multiplexer {
                     .map_err(|_| MultiplexerError::CommandFailed("tmux width parse failed".into()))
             }
             Multiplexer::Screen => {
-                let out = Command::new("tput").arg("cols").output()?;
-                let s = String::from_utf8(out.stdout)?;
-                s.trim()
-                    .parse::<usize>()
-                    .map_err(|_| MultiplexerError::CommandFailed("tput cols parse failed".into()))
+                #[cfg(unix)]
+                {
+                    let out = Command::new("tput").arg("cols").output()?;
+                    let s = String::from_utf8(out.stdout)?;
+                    s.trim().parse::<usize>().map_err(|_| {
+                        MultiplexerError::CommandFailed("tput cols parse failed".into())
+                    })
+                }
+                #[cfg(not(unix))]
+                Err(MultiplexerError::CommandFailed(
+                    "screen is not supported on this platform".into(),
+                ))
             }
         }
     }
@@ -64,7 +71,15 @@ impl Multiplexer {
             Multiplexer::Screen => {
                 let sty = std::env::var("STY").map_err(|_| MultiplexerError::NotInSession)?;
                 let tmp = tempfile::NamedTempFile::new()?;
-                let tmp_path = tmp.path().to_string_lossy().to_string();
+                let tmp_path = tmp
+                    .path()
+                    .to_str()
+                    .ok_or_else(|| {
+                        MultiplexerError::CommandFailed(
+                            "tmpfile path contains invalid UTF-8".into(),
+                        )
+                    })?
+                    .to_string();
                 let status = Command::new("screen")
                     .args(["-S", &sty, "-X", "readbuf", &tmp_path])
                     .status()?;
@@ -98,7 +113,15 @@ impl Multiplexer {
                 let sty = std::env::var("STY").map_err(|_| MultiplexerError::NotInSession)?;
                 let tmp = tempfile::NamedTempFile::new()?;
                 std::fs::write(tmp.path(), text)?;
-                let tmp_path = tmp.path().to_string_lossy().to_string();
+                let tmp_path = tmp
+                    .path()
+                    .to_str()
+                    .ok_or_else(|| {
+                        MultiplexerError::CommandFailed(
+                            "tmpfile path contains invalid UTF-8".into(),
+                        )
+                    })?
+                    .to_string();
                 Command::new("screen")
                     .args(["-S", &sty, "-X", "writebuf", &tmp_path])
                     .status()?;
