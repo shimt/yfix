@@ -45,7 +45,7 @@ fn strip_inner(text: &str) -> StripResult {
         };
     }
 
-    // Calculate gutter width from matching lines (most common match end position)
+    // Calculate gutter width from matching lines (max match end position)
     let gutter_width = non_empty
         .iter()
         .filter_map(|l| re.find(l).map(|m| m.end()))

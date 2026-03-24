@@ -54,10 +54,9 @@ fn join_inner(text: &str, wrap_width: usize, mut warnings: Option<&mut Vec<Warni
                     && !is_cjk(joined.chars().last())
                     && !is_cjk(cont.chars().next());
                 if needs_space {
-                    joined = format!("{} {}", joined, cont);
-                } else {
-                    joined = format!("{}{}", joined, cont);
+                    joined.push(' ');
                 }
+                joined.push_str(cont);
                 j += 1;
                 let seg_width = UnicodeWidthStr::width(lines[j - 1]);
                 let next_exists = j < lines.len() && !lines[j].is_empty();

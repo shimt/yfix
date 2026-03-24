@@ -8,14 +8,7 @@ use yfix::{
     debug_log,
     input::{resolve_input, resolve_width, WidthSource},
     multiplexer::Multiplexer,
-    output::{
-        os_clipboard::OsClipboard,
-        osc52::{Osc52, Osc52Mode},
-        screen_buffer::ScreenBuffer,
-        stdout::Stdout,
-        tmux_buffer::TmuxBuffer,
-        Environment, OutputTarget,
-    },
+    output::{Environment, OutputTarget},
     processor::Processor,
 };
 
@@ -68,26 +61,12 @@ fn maybe_eprintln(msg: &str) {
 }
 
 /// Log error to debug.log if debug mode is enabled
-fn log_error(
-    debug: bool,
-    version: &str,
-    width: usize,
-    width_source: &str,
-    is_ssh: bool,
-    error_msg: &str,
-) {
+fn log_error(debug: bool, ctx: &debug_log::LogContext, error_msg: &str) {
     if !debug {
         return;
     }
     if let Some(log_path) = debug_log::debug_log_path() {
-        let entry = debug_log::build_error_entry(
-            version,
-            width,
-            width_source.to_string(),
-            is_ssh,
-            error_msg,
-            &log_path,
-        );
+        let entry = debug_log::build_error_entry(ctx, error_msg, &log_path);
         let _ = debug_log::write_entry(&log_path, &entry);
     }
 }
@@ -148,35 +127,26 @@ fn run() -> anyhow::Result<i32> {
             .unwrap_or(false),
     };
 
-    let width_source_str = format!("{:?}", width_source);
+    let log_ctx = debug_log::LogContext {
+        version: env!("YFIX_VERSION"),
+        width: wrap_width,
+        width_source: width_source.to_string(),
+        is_ssh: env.is_ssh,
+    };
 
     let input = match resolve_input(cli.text.clone()) {
         Ok(input) => input,
         Err(e) => {
             let msg = format!("failed to read input: {e:#}");
             maybe_eprintln(&format!("yfix: {msg}"));
-            log_error(
-                debug,
-                env!("YFIX_VERSION"),
-                wrap_width,
-                &width_source_str,
-                env.is_ssh,
-                &msg,
-            );
+            log_error(debug, &log_ctx, &msg);
             return Ok(1);
         }
     };
 
     if input.trim().is_empty() {
         let targets = resolve_targets(&cli, &env);
-        return Ok(write_to_targets(
-            &targets,
-            "",
-            debug,
-            wrap_width,
-            &width_source_str,
-            env.is_ssh,
-        ));
+        return Ok(write_to_targets(&targets, "", debug, &log_ctx));
     }
 
     let processor = Processor::from_config(&config, wrap_width);
@@ -187,14 +157,7 @@ fn run() -> anyhow::Result<i32> {
             Err(e) => {
                 let msg = format!("transform failed: {e}");
                 maybe_eprintln(&format!("yfix: {msg}"));
-                log_error(
-                    debug,
-                    env!("YFIX_VERSION"),
-                    wrap_width,
-                    &width_source_str,
-                    env.is_ssh,
-                    &msg,
-                );
+                log_error(debug, &log_ctx, &msg);
                 return Ok(1);
             }
         };
@@ -205,10 +168,7 @@ fn run() -> anyhow::Result<i32> {
                 .map(|t| t.name().to_string())
                 .collect();
             let entry = debug_log::build_trace_entry(
-                env!("YFIX_VERSION"),
-                wrap_width,
-                width_source_str.clone(),
-                env.is_ssh,
+                &log_ctx,
                 target_names,
                 &input,
                 result.trace,
@@ -230,69 +190,34 @@ fn run() -> anyhow::Result<i32> {
     };
 
     let targets = resolve_targets(&cli, &env);
-    let exit_code = write_to_targets(
-        &targets,
-        &output_text,
-        debug,
-        wrap_width,
-        &width_source_str,
-        env.is_ssh,
-    );
+    let exit_code = write_to_targets(&targets, &output_text, debug, &log_ctx);
     Ok(exit_code)
 }
 
 fn resolve_targets(cli: &Cli, env: &Environment) -> Vec<Box<dyn OutputTarget>> {
     if let Some(ref spec) = cli.output {
-        parse_output_spec(spec, env)
+        let (targets, unknown) = env.parse_output_spec(spec);
+        for name in &unknown {
+            maybe_eprintln(&format!("yfix: unknown output target '{name}', skipping"));
+        }
+        targets
     } else {
         env.auto_targets()
     }
-}
-
-fn parse_output_spec(spec: &str, env: &Environment) -> Vec<Box<dyn OutputTarget>> {
-    use yfix::multiplexer::Multiplexer as Mux;
-    let mut targets: Vec<Box<dyn OutputTarget>> = Vec::new();
-    for part in spec.split(',') {
-        match part.trim() {
-            "stdout" => targets.push(Box::new(Stdout)),
-            "os-clipboard" => targets.push(Box::new(OsClipboard)),
-            "tmux" => targets.push(Box::new(TmuxBuffer)),
-            "screen" => targets.push(Box::new(ScreenBuffer)),
-            "osc52" => {
-                let mode = match env.multiplexer {
-                    Some(Mux::Tmux) => Osc52Mode::TmuxClientTty,
-                    Some(Mux::Screen) => Osc52Mode::ScreenPassthrough,
-                    None => Osc52Mode::Raw,
-                };
-                targets.push(Box::new(Osc52 { mode }));
-            }
-            other => maybe_eprintln(&format!("yfix: unknown output target '{other}', skipping")),
-        }
-    }
-    targets
 }
 
 fn write_to_targets(
     targets: &[Box<dyn OutputTarget>],
     text: &str,
     debug: bool,
-    width: usize,
-    width_source: &str,
-    is_ssh: bool,
+    ctx: &debug_log::LogContext,
 ) -> i32 {
     let mut had_error = false;
     for target in targets {
         if let Err(e) = target.write(text) {
             let msg = format!("failed to write to {}: {e}", target.name());
             maybe_eprintln(&format!("yfix: {msg}"));
-            log_error(
-                debug,
-                env!("YFIX_VERSION"),
-                width,
-                width_source,
-                is_ssh,
-                &msg,
-            );
+            log_error(debug, ctx, &msg);
             had_error = true;
         }
     }

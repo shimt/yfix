@@ -57,7 +57,11 @@ impl fmt::Display for Warning {
                     "join_near_miss: line {} width={} ({}% of wrap_width={})",
                     line_index,
                     width,
-                    width * 100 / wrap_width,
+                    if *wrap_width > 0 {
+                        width * 100 / wrap_width
+                    } else {
+                        0
+                    },
                     wrap_width
                 )
             }

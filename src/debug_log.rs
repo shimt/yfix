@@ -1,5 +1,5 @@
 use std::fs;
-use std::io::{BufRead, Write};
+use std::io::Write;
 use std::path::{Path, PathBuf};
 
 use directories::ProjectDirs;
@@ -37,20 +37,16 @@ pub struct LogEntry {
 }
 
 pub fn next_sequence_id(log_path: &Path) -> u32 {
-    let file = match fs::File::open(log_path) {
-        Ok(f) => f,
+    let content = match fs::read_to_string(log_path) {
+        Ok(c) => c,
         Err(_) => return 1,
     };
-    let reader = std::io::BufReader::new(file);
-    let mut last_id = 0u32;
-    for line in reader.lines().map_while(Result::ok) {
-        if let Ok(entry) = serde_json::from_str::<LogEntry>(&line) {
-            if entry.id > last_id {
-                last_id = entry.id;
-            }
+    for line in content.lines().rev() {
+        if let Ok(entry) = serde_json::from_str::<LogEntry>(line) {
+            return entry.id + 1;
         }
     }
-    last_id + 1
+    1
 }
 
 pub fn write_entry(log_path: &Path, entry: &LogEntry) -> anyhow::Result<()> {
@@ -69,46 +65,48 @@ pub fn write_entry(log_path: &Path, entry: &LogEntry) -> anyhow::Result<()> {
     Ok(())
 }
 
-fn base_entry(version: &str, log_path: &Path) -> LogEntry {
-    let id = next_sequence_id(log_path);
-    let timestamp = chrono::Local::now()
-        .format("%Y-%m-%dT%H:%M:%S%:z")
-        .to_string();
-    LogEntry {
-        id,
-        timestamp,
-        version: version.to_string(),
-        entry_type: "trace".to_string(),
-        width: 0,
-        width_source: String::new(),
-        is_ssh: false,
-        output_targets: vec![],
-        input: None,
-        trace: vec![],
-        warnings: vec![],
-        error: None,
-        flagged: false,
-        flagged_comment: None,
+pub struct LogContext<'a> {
+    pub version: &'a str,
+    pub width: usize,
+    pub width_source: String,
+    pub is_ssh: bool,
+}
+
+impl LogContext<'_> {
+    fn to_base_entry(&self, log_path: &Path) -> LogEntry {
+        let id = next_sequence_id(log_path);
+        let timestamp = chrono::Local::now()
+            .format("%Y-%m-%dT%H:%M:%S%:z")
+            .to_string();
+        LogEntry {
+            id,
+            timestamp,
+            version: self.version.to_string(),
+            entry_type: String::new(),
+            width: self.width,
+            width_source: self.width_source.clone(),
+            is_ssh: self.is_ssh,
+            output_targets: vec![],
+            input: None,
+            trace: vec![],
+            warnings: vec![],
+            error: None,
+            flagged: false,
+            flagged_comment: None,
+        }
     }
 }
 
-#[allow(clippy::too_many_arguments)]
 pub fn build_trace_entry(
-    version: &str,
-    width: usize,
-    width_source: String,
-    is_ssh: bool,
+    ctx: &LogContext,
     output_targets: Vec<String>,
     input: &str,
     trace: Vec<String>,
     warnings: Vec<Warning>,
     log_path: &Path,
 ) -> LogEntry {
-    let mut entry = base_entry(version, log_path);
+    let mut entry = ctx.to_base_entry(log_path);
     entry.entry_type = "trace".to_string();
-    entry.width = width;
-    entry.width_source = width_source;
-    entry.is_ssh = is_ssh;
     entry.output_targets = output_targets;
     entry.input = Some(input.to_string());
     entry.trace = trace;
@@ -116,19 +114,9 @@ pub fn build_trace_entry(
     entry
 }
 
-pub fn build_error_entry(
-    version: &str,
-    width: usize,
-    width_source: String,
-    is_ssh: bool,
-    error_msg: &str,
-    log_path: &Path,
-) -> LogEntry {
-    let mut entry = base_entry(version, log_path);
+pub fn build_error_entry(ctx: &LogContext, error_msg: &str, log_path: &Path) -> LogEntry {
+    let mut entry = ctx.to_base_entry(log_path);
     entry.entry_type = "error".to_string();
-    entry.width = width;
-    entry.width_source = width_source;
-    entry.is_ssh = is_ssh;
     entry.error = Some(error_msg.to_string());
     entry
 }
@@ -180,6 +168,15 @@ pub fn flag_last_entry(log_path: &Path, comment: Option<&str>) -> anyhow::Result
 mod tests {
     use super::*;
 
+    fn test_ctx() -> LogContext<'static> {
+        LogContext {
+            version: "test",
+            width: 80,
+            width_source: "T".to_string(),
+            is_ssh: false,
+        }
+    }
+
     #[test]
     fn next_id_from_empty() {
         let tmp = tempfile::NamedTempFile::new().unwrap();
@@ -196,10 +193,7 @@ mod tests {
     fn write_and_read_entry() {
         let tmp = tempfile::NamedTempFile::new().unwrap();
         let entry = build_trace_entry(
-            "test",
-            80,
-            "TmuxPane".to_string(),
-            false,
+            &test_ctx(),
             vec!["tmux-buffer".to_string()],
             "hello",
             vec!["[input] 1 lines".to_string()],
@@ -218,17 +212,7 @@ mod tests {
     fn sequential_ids() {
         let tmp = tempfile::NamedTempFile::new().unwrap();
         for _ in 0..3 {
-            let entry = build_trace_entry(
-                "test",
-                80,
-                "TmuxPane".to_string(),
-                false,
-                vec![],
-                "hello",
-                vec![],
-                vec![],
-                tmp.path(),
-            );
+            let entry = build_trace_entry(&test_ctx(), vec![], "hello", vec![], vec![], tmp.path());
             write_entry(tmp.path(), &entry).unwrap();
         }
         let content = fs::read_to_string(tmp.path()).unwrap();
@@ -246,10 +230,7 @@ mod tests {
     fn write_entry_with_warnings() {
         let tmp = tempfile::NamedTempFile::new().unwrap();
         let entry = build_trace_entry(
-            "test",
-            80,
-            "TmuxPane".to_string(),
-            false,
+            &test_ctx(),
             vec![],
             "hello",
             vec![],
@@ -265,17 +246,7 @@ mod tests {
     #[test]
     fn flag_last_entry_with_comment() {
         let tmp = tempfile::NamedTempFile::new().unwrap();
-        let entry = build_trace_entry(
-            "test",
-            80,
-            "T".into(),
-            false,
-            vec![],
-            "hello",
-            vec![],
-            vec![],
-            tmp.path(),
-        );
+        let entry = build_trace_entry(&test_ctx(), vec![], "hello", vec![], vec![], tmp.path());
         write_entry(tmp.path(), &entry).unwrap();
 
         flag_last_entry(tmp.path(), Some("bad result")).unwrap();
@@ -288,17 +259,7 @@ mod tests {
     #[test]
     fn flag_last_entry_without_comment() {
         let tmp = tempfile::NamedTempFile::new().unwrap();
-        let entry = build_trace_entry(
-            "test",
-            80,
-            "T".into(),
-            false,
-            vec![],
-            "hello",
-            vec![],
-            vec![],
-            tmp.path(),
-        );
+        let entry = build_trace_entry(&test_ctx(), vec![], "hello", vec![], vec![], tmp.path());
         write_entry(tmp.path(), &entry).unwrap();
 
         flag_last_entry(tmp.path(), None).unwrap();
@@ -312,17 +273,7 @@ mod tests {
     fn flag_only_last_of_multiple() {
         let tmp = tempfile::NamedTempFile::new().unwrap();
         for _ in 0..3 {
-            let entry = build_trace_entry(
-                "test",
-                80,
-                "T".into(),
-                false,
-                vec![],
-                "hello",
-                vec![],
-                vec![],
-                tmp.path(),
-            );
+            let entry = build_trace_entry(&test_ctx(), vec![], "hello", vec![], vec![], tmp.path());
             write_entry(tmp.path(), &entry).unwrap();
         }
 

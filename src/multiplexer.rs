@@ -8,14 +8,20 @@ pub enum Multiplexer {
 }
 
 impl Multiplexer {
-    pub fn detect() -> Option<Self> {
-        if std::env::var("TMUX").is_ok() {
+    /// Pure detection logic — testable without env var side effects.
+    pub fn detect_from(tmux_set: bool, sty_set: bool) -> Option<Self> {
+        if tmux_set {
             return Some(Multiplexer::Tmux);
         }
-        if std::env::var("STY").is_ok() {
+        if sty_set {
             return Some(Multiplexer::Screen);
         }
         None
+    }
+
+    /// Detect from environment variables.
+    pub fn detect() -> Option<Self> {
+        Self::detect_from(std::env::var("TMUX").is_ok(), std::env::var("STY").is_ok())
     }
 
     pub fn get_width(&self) -> Result<usize, MultiplexerError> {
@@ -117,16 +123,31 @@ mod tests {
     use super::*;
 
     #[test]
-    fn detect_returns_none_when_no_mux_env() {
-        if std::env::var("TMUX").is_err() && std::env::var("STY").is_err() {
-            assert!(Multiplexer::detect().is_none());
-        }
+    fn detect_tmux_when_tmux_set() {
+        assert_eq!(
+            Multiplexer::detect_from(true, false),
+            Some(Multiplexer::Tmux)
+        );
     }
 
     #[test]
-    fn enum_variants_exist() {
-        let _: Option<Multiplexer> = None;
-        let _ = Multiplexer::Tmux;
-        let _ = Multiplexer::Screen;
+    fn detect_screen_when_sty_set() {
+        assert_eq!(
+            Multiplexer::detect_from(false, true),
+            Some(Multiplexer::Screen)
+        );
+    }
+
+    #[test]
+    fn detect_tmux_takes_priority_over_screen() {
+        assert_eq!(
+            Multiplexer::detect_from(true, true),
+            Some(Multiplexer::Tmux)
+        );
+    }
+
+    #[test]
+    fn detect_none_when_neither_set() {
+        assert_eq!(Multiplexer::detect_from(false, false), None);
     }
 }

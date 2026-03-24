@@ -122,4 +122,20 @@ mod tests {
         let result = t().transform(input).unwrap();
         assert_eq!(result, "  hello");
     }
+
+    #[test]
+    fn tab_indent_dedented() {
+        let input = "first\n\tsecond\n\tthird";
+        let result = t().transform(input).unwrap();
+        assert_eq!(result, "first\nsecond\nthird");
+    }
+
+    #[test]
+    fn mixed_tab_space_uses_min_bytes() {
+        // tab=1 byte, 2 spaces=2 bytes → min_indent=1 (tab line)
+        // Slices by byte offset: tab line loses 1 byte (tab), space line loses 1 byte (space)
+        let input = "header\n\ttab line\n  space line";
+        let result = t().transform(input).unwrap();
+        assert_eq!(result, "header\ntab line\n space line");
+    }
 }
