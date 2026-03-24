@@ -1620,6 +1620,7 @@ dependencies = [
  "criterion",
  "directories",
  "is-terminal",
+ "libc",
  "regex",
  "serde",
  "serde_json",
