@@ -1,5 +1,8 @@
 /target
 
+# Worktrees
+.worktrees/
+
 # AI agent working directories
 .claude/
 .copilot/
