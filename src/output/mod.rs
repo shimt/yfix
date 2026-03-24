@@ -14,7 +14,36 @@ struct TmuxInfo {
     set_clipboard: String,
 }
 
+/// Parse output of `tmux display-message -p '#{client_pid}\t#{set-clipboard}'`.
+/// Returns `(client_pid, set_clipboard)`.
+/// `set_clipboard` is `None` when the format variable is unavailable (tmux < 3.3a returns empty).
+fn parse_display_message(output: &str) -> (Option<u32>, Option<String>) {
+    let s = output.trim_end();
+    let mut parts = s.splitn(2, '\t');
+    let client_pid = parts.next().and_then(|p| p.trim().parse::<u32>().ok());
+    let set_clipboard = parts
+        .next()
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty());
+    (client_pid, set_clipboard)
+}
+
+/// Fall back to `tmux show-option -gv set-clipboard` for tmux < 3.3a,
+/// where `#{set-clipboard}` format variable is not available.
+fn query_set_clipboard_option() -> String {
+    use std::process::Command;
+    Command::new("tmux")
+        .args(["show-option", "-gv", "set-clipboard"])
+        .output()
+        .ok()
+        .and_then(|o| String::from_utf8(o.stdout).ok())
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty())
+        .unwrap_or_else(|| "on".to_string())
+}
+
 /// Query tmux for client PID and set-clipboard option in a single subprocess call.
+/// Falls back to `show-option` for tmux < 3.3a where `#{set-clipboard}` is unavailable.
 fn detect_tmux_info() -> TmuxInfo {
     use std::process::Command;
     let result = Command::new("tmux")
@@ -25,14 +54,10 @@ fn detect_tmux_info() -> TmuxInfo {
 
     match result {
         Some(s) => {
-            let s = s.trim();
-            let mut parts = s.splitn(2, '\t');
-            let client_pid = parts.next().and_then(|p| p.trim().parse::<u32>().ok());
-            let set_clipboard = parts
-                .next()
-                .map(|s| s.trim().to_string())
-                .filter(|s| !s.is_empty())
-                .unwrap_or_else(|| "on".to_string());
+            let (client_pid, set_clipboard_opt) = parse_display_message(&s);
+            // #{set-clipboard} is only available since tmux 3.3a.
+            // Fall back to show-option for older versions.
+            let set_clipboard = set_clipboard_opt.unwrap_or_else(query_set_clipboard_option);
             TmuxInfo {
                 client_pid,
                 set_clipboard,
@@ -384,5 +409,41 @@ mod tests {
             vec!["wsl-clipboard"]
         );
         assert!(unknown.is_empty());
+    }
+
+    #[test]
+    fn parse_display_message_normal() {
+        let (pid, sc) = parse_display_message("12345\ton\n");
+        assert_eq!(pid, Some(12345));
+        assert_eq!(sc, Some("on".to_string()));
+    }
+
+    #[test]
+    fn parse_display_message_off() {
+        let (pid, sc) = parse_display_message("12345\toff\n");
+        assert_eq!(pid, Some(12345));
+        assert_eq!(sc, Some("off".to_string()));
+    }
+
+    #[test]
+    fn parse_display_message_empty_clipboard() {
+        // tmux < 3.3a returns empty string for #{set-clipboard}
+        let (pid, sc) = parse_display_message("12345\t\n");
+        assert_eq!(pid, Some(12345));
+        assert_eq!(sc, None);
+    }
+
+    #[test]
+    fn parse_display_message_no_pid() {
+        let (pid, sc) = parse_display_message("\ton\n");
+        assert_eq!(pid, None);
+        assert_eq!(sc, Some("on".to_string()));
+    }
+
+    #[test]
+    fn parse_display_message_external() {
+        let (pid, sc) = parse_display_message("99\texternal\n");
+        assert_eq!(pid, Some(99));
+        assert_eq!(sc, Some("external".to_string()));
     }
 }
