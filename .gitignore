@@ -1,0 +1,7 @@
+/target
+
+# AI agent working directories
+.claude/
+.copilot/
+.gemini/
+.aider*
