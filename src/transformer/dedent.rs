@@ -3,6 +3,15 @@ use crate::error::TransformerError;
 
 pub struct Dedent;
 
+/// Returns the number of leading whitespace characters (Unicode-aware).
+fn leading_whitespace_chars(s: &str) -> usize {
+    s.chars().take_while(|c| c.is_whitespace()).count()
+}
+
+fn skip_chars(s: &str, n: usize) -> String {
+    s.chars().skip(n).collect()
+}
+
 impl Transformer for Dedent {
     fn name(&self) -> &'static str {
         "dedent"
@@ -17,7 +26,7 @@ impl Transformer for Dedent {
         let min_indent = lines[1..]
             .iter()
             .filter(|l| !l.trim().is_empty())
-            .map(|l| l.len() - l.trim_start().len())
+            .map(|l| leading_whitespace_chars(l))
             .min()
             .unwrap_or(0);
 
@@ -27,10 +36,10 @@ impl Transformer for Dedent {
 
         let mut out = Vec::new();
 
-        // Dedent line 1 too if it has at least min_indent leading spaces
-        let first_indent = lines[0].len() - lines[0].trim_start().len();
+        // Dedent line 1 too if it has at least min_indent leading whitespace chars
+        let first_indent = leading_whitespace_chars(lines[0]);
         if first_indent >= min_indent {
-            out.push(lines[0][min_indent..].to_string());
+            out.push(skip_chars(lines[0], min_indent));
         } else {
             out.push(lines[0].to_string());
         }
@@ -39,7 +48,7 @@ impl Transformer for Dedent {
             if line.trim().is_empty() {
                 out.push(String::new());
             } else {
-                out.push(line[min_indent..].to_string());
+                out.push(skip_chars(line, min_indent));
             }
         }
 
@@ -131,9 +140,9 @@ mod tests {
     }
 
     #[test]
-    fn mixed_tab_space_uses_min_bytes() {
-        // tab=1 byte, 2 spaces=2 bytes → min_indent=1 (tab line)
-        // Slices by byte offset: tab line loses 1 byte (tab), space line loses 1 byte (space)
+    fn mixed_tab_space_uses_min_chars() {
+        // tab=1 char, 2 spaces=2 chars → min_indent=1 (tab line)
+        // Strips 1 char: tab line loses the tab, space line loses 1 space
         let input = "header\n\ttab line\n  space line";
         let result = t().transform(input).unwrap();
         assert_eq!(result, "header\ntab line\n space line");

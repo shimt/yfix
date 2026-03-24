@@ -106,7 +106,12 @@ impl Multiplexer {
                 if let Some(stdin) = child.stdin.as_mut() {
                     stdin.write_all(text.as_bytes())?;
                 }
-                child.wait()?;
+                let status = child.wait()?;
+                if !status.success() {
+                    return Err(MultiplexerError::CommandFailed(
+                        "tmux load-buffer failed".into(),
+                    ));
+                }
                 Ok(())
             }
             Multiplexer::Screen => {
@@ -122,9 +127,14 @@ impl Multiplexer {
                         )
                     })?
                     .to_string();
-                Command::new("screen")
+                let status = Command::new("screen")
                     .args(["-S", &sty, "-X", "writebuf", &tmp_path])
                     .status()?;
+                if !status.success() {
+                    return Err(MultiplexerError::CommandFailed(
+                        "screen writebuf failed".into(),
+                    ));
+                }
                 Ok(())
             }
         }

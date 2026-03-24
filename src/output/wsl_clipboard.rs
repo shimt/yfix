@@ -16,7 +16,10 @@ impl OutputTarget for WslClipboard {
         if let Some(stdin) = child.stdin.as_mut() {
             stdin.write_all(text.as_bytes())?;
         }
-        child.wait()?;
+        let status = child.wait()?;
+        if !status.success() {
+            return Err(OutputError::Clipboard("clip.exe exited with error".into()));
+        }
         Ok(())
     }
 }

@@ -26,6 +26,13 @@ fn tmux_client_tty() -> Result<String, OutputError> {
         .args(["display-message", "-p", "#{client_tty}"])
         .output()
         .map_err(OutputError::Io)?;
+    if !output.status.success() {
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        return Err(OutputError::Clipboard(format!(
+            "tmux display-message failed: {}",
+            stderr.trim()
+        )));
+    }
     let tty = String::from_utf8(output.stdout)
         .map_err(|_| OutputError::Clipboard("failed to parse client_tty".into()))?;
     let tty = tty.trim().to_string();

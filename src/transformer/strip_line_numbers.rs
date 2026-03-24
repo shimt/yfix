@@ -71,8 +71,7 @@ fn strip_inner(text: &str) -> StripResult {
             .filter(|l| {
                 !l.trim().is_empty()
                     && !re.is_match(l)
-                    && l.len() >= gw
-                    && l[..gw].chars().all(|c| c == ' ')
+                    && l.as_bytes().iter().take_while(|&&b| b == b' ').count() >= gw
             })
             .count()
     } else {

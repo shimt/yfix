@@ -18,13 +18,9 @@ struct Cli {
     /// Text to clean (highest priority input source)
     text: Option<String>,
 
-    /// Output targets: stdout, os-clipboard, tmux, osc52 (comma-separated)
+    /// Output targets: stdout, os-clipboard, clipboard, wsl-clipboard, tmux, screen, osc52 (comma-separated)
     #[arg(long)]
     output: Option<String>,
-
-    /// Auto-detect output targets (default behavior, ignored if --output is set)
-    #[arg(long)]
-    auto: bool,
 
     /// Terminal pane width for unwrap (e.g., pass #{pane_width} from tmux)
     #[arg(long)]
