@@ -53,8 +53,9 @@ bind-key -T copy-mode MouseDragEnd1Pane \
 ```
 yfix [OPTIONS] [TEXT]
 
---output <targets>   stdout, os-clipboard, tmux, osc52 (comma-separated)
+--output <targets>   stdout, os-clipboard, clipboard, wsl-clipboard, tmux, screen, osc52 (comma-separated)
 --width <N>          terminal width for unwrap
+--config <path>      override config file path
 --show-terminal      print environment detection to stderr
 --help-ai            print AI integration guide (markdown)
 --oops [comment]     flag last debug log entry

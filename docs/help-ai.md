@@ -13,8 +13,7 @@ Cleans terminal-copied text: removes line-wrap artifacts, line numbers, ANSI esc
 yfix [OPTIONS] [TEXT]
 
 Options:
-  --output <targets>   stdout, os-clipboard, tmux, osc52 (comma-separated)
-  --auto               auto-detect output targets (default)
+  --output <targets>   stdout, os-clipboard, clipboard, wsl-clipboard, tmux, screen, osc52 (comma-separated)
   --width <N>          terminal width for unwrap (use #{pane_width} in tmux)
   --config <path>      override config file path
   --show-terminal      print detection results to stderr
@@ -65,9 +64,9 @@ Run `yfix --show-terminal` to see resolved targets for your environment.
 | Environment | Output Targets |
 |---|---|
 | tmux + local (`set-clipboard=on`) | tmux-buffer + os-clipboard |
-| tmux + local (`set-clipboard=ext`) | tmux-buffer + os-clipboard + osc52(tmux-client-tty) |
+| tmux + local (`set-clipboard=external`) | tmux-buffer + os-clipboard + osc52(tmux-client-tty) |
 | tmux + local (`set-clipboard=off`) | tmux-buffer |
-| tmux + SSH/mosh (`set-clipboard=on/ext`) | tmux-buffer + osc52(tmux-client-tty) |
+| tmux + SSH/mosh (`set-clipboard=on` or `external`) | tmux-buffer + osc52(tmux-client-tty) |
 | tmux + SSH/mosh (`set-clipboard=off`) | tmux-buffer |
 | screen + local | screen-buffer + os-clipboard |
 | screen + SSH | screen-buffer + osc52(screen-passthrough) |
@@ -80,7 +79,7 @@ WSL detected via `/proc/version` containing "microsoft".
 
 ## Debug / feedback mode
 
-Toggle by creating/removing `{config_dir}/yfix/debug` (see Runtime info for exact path).
+Toggle by creating/removing the debug flag file shown in Runtime info (typically `<app_config_dir>/debug`).
 
 When enabled:
 - Clipboard output stays clean
