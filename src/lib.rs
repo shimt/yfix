@@ -4,5 +4,6 @@ pub mod error;
 pub mod input;
 pub mod multiplexer;
 pub mod output;
+pub mod process_tree;
 pub mod processor;
 pub mod transformer;
