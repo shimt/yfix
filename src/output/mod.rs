@@ -7,91 +7,71 @@ pub mod wsl_clipboard;
 
 use crate::error::OutputError;
 use crate::multiplexer::Multiplexer;
+use crate::process_tree;
+
+struct TmuxInfo {
+    client_pid: Option<u32>,
+    set_clipboard: String,
+}
+
+/// Query tmux for client PID and set-clipboard option in a single subprocess call.
+fn detect_tmux_info() -> TmuxInfo {
+    use std::process::Command;
+    let result = Command::new("tmux")
+        .args(["display-message", "-p", "#{client_pid}\t#{set-clipboard}"])
+        .output()
+        .ok()
+        .and_then(|o| String::from_utf8(o.stdout).ok());
+
+    match result {
+        Some(s) => {
+            let s = s.trim();
+            let mut parts = s.splitn(2, '\t');
+            let client_pid = parts.next().and_then(|p| p.trim().parse::<u32>().ok());
+            let set_clipboard = parts
+                .next()
+                .map(|s| s.trim().to_string())
+                .filter(|s| !s.is_empty())
+                .unwrap_or_else(|| "on".to_string());
+            TmuxInfo {
+                client_pid,
+                set_clipboard,
+            }
+        }
+        None => TmuxInfo {
+            client_pid: None,
+            set_clipboard: "on".to_string(),
+        },
+    }
+}
 
 /// Detect SSH session.
 /// 1. Check process env vars (SSH_CLIENT, SSH_TTY) — works outside multiplexers
 /// 2. Inside tmux: get the current client PID and walk the process tree looking
 ///    for sshd. This correctly handles attach/detach: only the current client's
 ///    ancestry matters, not stale session environment variables.
-fn detect_ssh(multiplexer: &Option<Multiplexer>) -> bool {
+fn detect_ssh(multiplexer: &Option<Multiplexer>, tmux_info: Option<&TmuxInfo>) -> bool {
     if std::env::var("SSH_CLIENT").is_ok() || std::env::var("SSH_TTY").is_ok() {
         return true;
     }
 
     if matches!(multiplexer, Some(Multiplexer::Tmux)) {
-        if let Some(client_pid) = tmux_client_pid() {
-            return has_remote_ancestor(client_pid);
+        if let Some(info) = tmux_info {
+            if let Some(client_pid) = info.client_pid {
+                return process_tree::has_remote_ancestor(client_pid);
+            }
         }
     } else {
         // Outside tmux: walk the current process tree to detect sshd/mosh-server.
         // Note: for detached screen sessions, the ancestry traces to PID 1,
         // so mosh-server won't be found here. SSH_CLIENT/SSH_TTY above covers
         // the SSH case; standalone mosh inside detached screen is undetectable.
-        if has_remote_ancestor(std::process::id()) {
+        if process_tree::has_remote_ancestor(std::process::id()) {
             return true;
         }
     }
 
     false
-}
-
-fn tmux_client_pid() -> Option<u32> {
-    use std::process::Command;
-    Command::new("tmux")
-        .args(["display-message", "-p", "#{client_pid}"])
-        .output()
-        .ok()
-        .and_then(|o| String::from_utf8(o.stdout).ok()?.trim().parse::<u32>().ok())
-}
-
-/// Check if any ancestor process is a remote access daemon (sshd, mosh-server).
-fn has_remote_ancestor(start_pid: u32) -> bool {
-    let mut pid = start_pid;
-    while pid > 1 {
-        if let Some(name) = process_name(pid) {
-            if name == "sshd" || name.starts_with("sshd-") || name.contains("mosh-server") {
-                return true;
-            }
-        }
-        match parent_pid(pid) {
-            Some(ppid) if ppid != pid => pid = ppid,
-            _ => break,
-        }
-    }
-    false
-}
-
-#[cfg(unix)]
-fn process_name(pid: u32) -> Option<String> {
-    use std::process::Command;
-    Command::new("ps")
-        .args(["-o", "comm=", "-p", &pid.to_string()])
-        .output()
-        .ok()
-        .and_then(|o| String::from_utf8(o.stdout).ok())
-        .map(|s| s.trim().to_string())
-        .filter(|s| !s.is_empty())
-}
-
-#[cfg(not(unix))]
-fn process_name(_pid: u32) -> Option<String> {
-    None
-}
-
-#[cfg(unix)]
-fn parent_pid(pid: u32) -> Option<u32> {
-    use std::process::Command;
-    Command::new("ps")
-        .args(["-o", "ppid=", "-p", &pid.to_string()])
-        .output()
-        .ok()
-        .and_then(|o| String::from_utf8(o.stdout).ok())
-        .and_then(|s| s.trim().parse::<u32>().ok())
-}
-
-#[cfg(not(unix))]
-fn parent_pid(_pid: u32) -> Option<u32> {
-    None
 }
 
 pub trait OutputTarget {
@@ -123,13 +103,16 @@ fn detect_wsl() -> bool {
 impl Environment {
     pub fn detect() -> Self {
         let multiplexer = Multiplexer::detect();
-        let is_ssh = detect_ssh(&multiplexer);
-        let is_wsl = detect_wsl();
-        let set_clipboard = if matches!(multiplexer, Some(Multiplexer::Tmux)) {
-            Multiplexer::tmux_set_clipboard()
+        let tmux_info = if matches!(multiplexer, Some(Multiplexer::Tmux)) {
+            Some(detect_tmux_info())
         } else {
-            "on".to_string()
+            None
         };
+        let is_ssh = detect_ssh(&multiplexer, tmux_info.as_ref());
+        let is_wsl = detect_wsl();
+        let set_clipboard = tmux_info
+            .map(|i| i.set_clipboard)
+            .unwrap_or_else(|| "on".to_string());
         Self {
             multiplexer,
             is_ssh,

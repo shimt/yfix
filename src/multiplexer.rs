@@ -139,16 +139,6 @@ impl Multiplexer {
             }
         }
     }
-
-    pub fn tmux_set_clipboard() -> String {
-        Command::new("tmux")
-            .args(["show-option", "-gv", "set-clipboard"])
-            .output()
-            .ok()
-            .and_then(|o| String::from_utf8(o.stdout).ok())
-            .map(|s| s.trim().to_string())
-            .unwrap_or_else(|| "on".to_string())
-    }
 }
 
 #[cfg(test)]

@@ -96,7 +96,7 @@ fn proc_info_impl(_pid: u32) -> Option<(String, u32)> {
     None
 }
 
-#[cfg(unix)]
+#[cfg(all(unix, not(target_os = "linux"), not(target_os = "macos")))]
 fn proc_info_ps_fallback(pid: u32) -> Option<(String, u32)> {
     use std::process::Command;
     let out = Command::new("ps")
