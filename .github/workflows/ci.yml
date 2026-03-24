@@ -29,6 +29,17 @@ jobs:
       - name: Format check
         run: cargo fmt --check
 
+  brew-lint:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Style check formula
+        run: brew style Formula/yfix.rb
+      - name: Tap and audit formula
+        run: |
+          brew tap shimt/yfix "$(pwd)"
+          brew audit shimt/yfix/yfix
+
   cross-check:
     runs-on: ubuntu-latest
     strategy:

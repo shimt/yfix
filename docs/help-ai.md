@@ -7,6 +7,17 @@
 
 Cleans terminal-copied text: removes line-wrap artifacts, line numbers, ANSI escapes, normalizes indentation. Writes result to OS clipboard, tmux/screen buffer, OSC 52, or stdout. Works standalone, inside tmux/screen/byobu, over SSH, or via mosh.
 
+## Install
+
+```sh
+# Homebrew (macOS / Linux)
+brew tap shimt/yfix https://github.com/shimt/yfix
+brew install yfix
+
+# From source
+cargo install --git https://github.com/shimt/yfix.git
+```
+
 ## CLI
 
 ```
@@ -16,6 +27,7 @@ Options:
   --output <targets>   stdout, os-clipboard, clipboard, wsl-clipboard, tmux, screen, osc52 (comma-separated)
   --width <N>          terminal width for unwrap (use #{pane_width} in tmux)
   --config <path>      override config file path
+  --version            print version and exit
   --show-terminal      print detection results to stderr
   --help-ai            print this guide (markdown)
   --oops [comment]     flag last debug log entry as problematic

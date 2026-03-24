@@ -14,6 +14,13 @@ Works standalone, inside tmux/screen, over SSH, and through mosh.
 
 ## Install
 
+### Homebrew (macOS / Linux)
+
+```sh
+brew tap shimt/yfix https://github.com/shimt/yfix
+brew install yfix
+```
+
 ### From source
 
 ```sh
@@ -56,6 +63,7 @@ yfix [OPTIONS] [TEXT]
 --output <targets>   stdout, os-clipboard, clipboard, wsl-clipboard, tmux, screen, osc52 (comma-separated)
 --width <N>          terminal width for unwrap
 --config <path>      override config file path
+--version            print version and exit
 --show-terminal      print environment detection to stderr
 --help-ai            print AI integration guide (markdown)
 --oops [comment]     flag last debug log entry

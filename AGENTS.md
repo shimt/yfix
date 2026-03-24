@@ -95,6 +95,7 @@ docs/
 - License: MIT OR Apache-2.0
 - Fix commits: squash into the relevant feat commit before merging
 - Use `git commit --fixup <SHA>` + `GIT_SEQUENCE_EDITOR=: git rebase --autosquash <base>` for non-interactive squash
+- **PR title and body must be written in English**
 
 ## Strategy: Rebase + Fixup
 
@@ -113,12 +114,23 @@ docs/
 - **After implementation**: run `cargo check` to catch compile errors early
 - **Clippy findings**: fix manually, do not use `cargo clippy --fix` (may introduce unintended changes)
 
+## Bump version checklist
+
+When bumping the version, update **all** of the following:
+
+1. `Cargo.toml` — `version = "x.y.z"`
+2. `cargo build` (or `cargo check`) — updates `Cargo.lock`
+3. `Formula/yfix.rb` — `version "x.y.z"` and sha256 hashes
+
+> **Note**: sha256 hashes in `Formula/yfix.rb` are auto-updated by the `update-formula` job in `release.yml` after each tagged release. Manual update is only needed when testing the formula before tagging.
+
 # Pre-commit
 
 ```sh
 cargo test                                    # 1. correctness
 cargo clippy --tests -- -D warnings           # 2. lint (detect only, no --fix)
 cargo fmt --check                             # 3. verify formatting (should be no-op)
+brew style Formula/yfix.rb                    # 4. formula style (macOS only, skip if brew unavailable)
 ```
 
 ## Cross-build verification
