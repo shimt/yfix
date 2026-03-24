@@ -1,0 +1,20 @@
+  1  $ cargo test
+  2  [32m   Compiling[0m yfix v1.0.0 (/home/user/yfix)
+  3  [32m    Finished[0m `test` profile [unoptimized + debuginfo] target(s) in 2.34s
+  4  [32m     Running[0m unittests src/lib.rs (target/debug/deps/yfix-abc123)
+  5
+  6  running 42 tests
+  7  test transformer::strip_ansi::tests::removes_color ... [32mok[0m
+  8  test transformer::dedent::tests::uniform_indent ... [32mok[0m
+  9  test transformer::join_wrapped::tests::joins_at_wrap_width ... [32mok[0m
+ 10  test config::tests::default_config_has_expected_values ... [32mok[0m
+ 11  test config::tests::load_nonexistent_path_returns_defaults ... [32mok[0m
+ 12  test processor::tests::process_strips_ansi_and_trailing ... [32mok[0m
+ 13
+ 14  test result: [32mok[0m. 42 passed; 0 failed; 0 ignored; 0 measured;
+ 15  0 filtered out; finished in 0.01s
+ 16
+ 17  $ echo "done"
+ 18  done
+ 19  $
+ 20

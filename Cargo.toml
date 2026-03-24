@@ -36,3 +36,12 @@ thiserror = "2"
 unicode-width = "0.2"
 
 [dev-dependencies]
+criterion = { version = "0.5", features = ["html_reports"] }
+
+[[bench]]
+name = "transformers"
+harness = false
+
+[[bench]]
+name = "pipeline"
+harness = false

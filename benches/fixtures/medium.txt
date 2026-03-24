@@ -1,0 +1,138 @@
+[1m$ cargo test --lib 2>&1 | head -120[0m
+   Compiling yfix v0.3.1 (/home/user/repos/yfix)
+    Finished test [unoptimized + debuginfo] target(s) in 2.34s
+     Running unittests src/lib.rs (target/debug/deps/yfix-8a3f2c1d)
+
+running 42 tests
+[32mtest join::tests::test_join_simple ... ok[0m
+[32mtest join::tests::test_join_wrapped ... ok[0m
+[32mtest join::tests::test_join_indented ... ok[0m
+[32mtest join::tests::test_join_empty_line ... ok[0m
+[32mtest ansi::tests::test_strip_basic ... ok[0m
+[31mtest ansi::tests::test_strip_256color ... FAILED[0m
+[32mtest ansi::tests::test_visible_width ... ok[0m
+[32mtest clipboard::tests::test_copy_osc52 ... ok[0m
+
+failures:
+
+---- ansi::tests::test_strip_256color stdout ----
+[1mthread 'ansi::tests::test_strip_256color' panicked at src/ansi.rs:147:5:[0m
+assertion `left == right` failed
+  left: "\x1b[38;5;214mwarning\x1b[0m"
+ right: "warning"
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+
+[32mtest result: FAILED.[0m 1 failed; 41 passed; 0 ignored; 0 measured; 0 filtered out
+
+[1m$ git diff HEAD~1 HEAD -- src/join.rs[0m
+[1mdiff --git a/src/join.rs b/src/join.rs[0m
+index 4a2f8b3..7d91c04 100644
+--- a/src/join.rs
++++ b/src/join.rs
+[36m@@ -12,6 +12,18 @@ pub fn join_wrapped(lines: &[&str], width: usize) -> String {[0m
+     let mut result = String::new();
+     let mut iter = lines.iter().peekable();
+
+[32m+    // Skip merging when the next line starts with a list prefix or blockquote.[0m
+[32m+    // This prevents joining bullet points and quoted lines incorrectly.[0m
+[32m+    let is_prefix = |s: &str| {[0m
+[32m+        let t = s.trim_start();[0m
+[32m+        t.starts_with("- ")[0m
+[32m+            || t.starts_with("* ")[0m
+[32m+            || t.starts_with("> ")[0m
+[32m+            || t.starts_with("1.")[0m
+[32m+    };[0m
+[32m+[0m
+     while let Some(line) = iter.next() {
+[31m-        let next = iter.peek().copied();[0m
+[32m+        let next = iter.peek().copied().filter(|n| !is_prefix(n));[0m
+         if let Some(n) = next {
+[36m@@ -31,3 +43,6 @@ pub fn join_wrapped(lines: &[&str], width: usize) -> String {[0m
+     result
+ }
+
+[32m+#[cfg(test)][0m
+[32m+mod tests {[0m
+[32m+    use super::*;[0m
+
+[1m$ cat benches/fixtures/sample.txt | wc -l[0m
+      247
+
+[1m$ cargo bench -- join 2>&1[0m
+   Compiling yfix v0.3.1 (/home/user/repos/yfix)
+    Finished bench [optimized] target(s) in 5.12s
+     Running benches/bench_join.rs (target/release/deps/bench_join-d4e7f123)
+[1mjoin_wrapped/small[0m
+                        time:   [32m[1.2341 µs 1.2489 µs 1.2653 µs][0m
+                        change: [32m[-3.2145% -1.8732% -0.4521%][0m (p = 0.01 < 0.05)
+                        [32mPerformance has improved.[0m
+[1mjoin_wrapped/medium[0m
+                        time:   [33m[8.4521 µs 8.6103 µs 8.7834 µs][0m
+                        change: [33m[+0.1234% +0.9871% +1.8432%][0m (p = 0.03 < 0.05)
+                        [33mChange within noise threshold.[0m
+[1mjoin_wrapped/large[0m
+                        time:   [31m[42.341 µs 43.102 µs 44.023 µs][0m
+                        change: [31m[+5.2341% +6.8901% +8.6234%][0m (p = 0.00 < 0.05)
+                        [1m[31mPerformance has regressed.[0m
+
+[1m$ cat src/ansi.rs | nl -ba | sed -n '140,165p'[0m
+   140	    /// Strip ANSI escape sequences from a string slice.
+   141	    /// Returns a new String with all escape codes removed.
+   142	    pub fn strip(input: &str) -> String {
+   143	        let mut out = String::with_capacity(input.len());
+   144	        let mut chars = input.chars().peekable();
+   145	        while let Some(ch) = chars.next() {
+   146	            if ch == '\x1b' {
+   147	                match chars.peek() {
+   148	                    Some('[') => {
+   149	                        chars.next(); // consume '['
+   150	                        // consume until final byte in range 0x40–0x7E
+   151	                        for c in chars.by_ref() {
+   152	                            if ('@'..='~').contains(&c) {
+   153	                                break;
+   153	                            }
+   154	                        }
+   155	                    }
+   156	                    Some(']') => {
+   157	                        chars.next(); // consume ']'  (OSC sequence)
+   158	                        // read until ST (ESC \) or BEL
+   159	                        while let Some(c) = chars.next() {
+   160	                            if c == '\x07' || c == '\\' { break; }
+   161	                        }
+   162	                    }
+   163	                    _ => {} // lone ESC, pass through
+   164	                }
+   165	            } else {
+
+[1m$ git log --oneline -10[0m
+[33me6370f4[0m chore: ignore AI agent working directories in .gitignore
+[33mcd780fd[0m fix: silently ignore EPIPE on stdout write
+[33m814f682[0m fix: guard screen tput and tmpfile path for non-unix platforms
+[33m644eb7f[0m feat: suppress join_wrapped merging at list/blockquote prefixes
+[33m9cf044d[0m docs: move agent selection guide to yfix-dev
+[33m3b2e1f8[0m refactor: extract visible_width into ansi module
+[33ma1d0e5c[0m feat: add OSC 52 clipboard fallback for tmux
+[33m7f4c3d2[0m test: add golden file tests for join_wrapped edge cases
+[33m5e8b1a9[0m chore: update Cargo.lock
+[33m2d7f0e4[0m fix: handle empty input in strip_ansi
+
+[1m$ cargo clippy -- -D warnings 2>&1[0m
+    Checking yfix v0.3.1 (/home/user/repos/yfix)
+[33mwarning[0m[1m: unused variable: `width`[0m
+  [1m[34m-->[0m src/join.rs:58:9
+   [1m[34m|[0m
+[1m[34m58[0m [1m[34m|[0m         let width = ctx.term_width.unwrap_or(80);
+   [1m[34m|[0m         [1m[33m^^^^^ help: if this is intentional, prefix it with an underscore: `_width`[0m
+   [1m[34m|[0m
+   = [1mnote[0m: `#[warn(unused_variables)]` on by default
+
+[32merror[0m[1m: aborting due to 1 previous error; 1 warning emitted[0m
+
+[1m$ RUST_LOG=debug cargo run -- < /dev/stdin[0m
+[34m[DEBUG yfix::env][0m detected terminal: xterm-256color
+[34m[DEBUG yfix::env][0m clipboard method: osc52
+[34m[DEBUG yfix::join][0m input lines: 3
+[34m[DEBUG yfix::join][0m line[0]: "The quick brown fox jumps over the lazy dog and" (47 chars)
+[34m[DEBUG yfix::join][0m line[1]: "then continued running through the forest path." (48 chars)
+[34m[DEBUG yfix::join][0m join_wrapped: merged lines 0+1 => 94 chars, exceeds 80, splitting
+[32m[INFO  yfix][0m copied 2 lines to clipboard
