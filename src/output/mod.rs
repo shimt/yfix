@@ -22,6 +22,14 @@ fn detect_ssh(multiplexer: &Option<Multiplexer>) -> bool {
         if let Some(client_pid) = tmux_client_pid() {
             return has_remote_ancestor(client_pid);
         }
+    } else {
+        // Outside tmux: walk the current process tree to detect sshd/mosh-server.
+        // Note: for detached screen sessions, the ancestry traces to PID 1,
+        // so mosh-server won't be found here. SSH_CLIENT/SSH_TTY above covers
+        // the SSH case; standalone mosh inside detached screen is undetectable.
+        if has_remote_ancestor(std::process::id()) {
+            return true;
+        }
     }
 
     false
@@ -198,6 +206,8 @@ impl Environment {
             match part.trim() {
                 "stdout" => targets.push(Box::new(stdout::Stdout)),
                 "os-clipboard" => targets.push(Box::new(os_clipboard::OsClipboard)),
+                "clipboard" => targets.push(self.clipboard_target()),
+                "wsl-clipboard" => targets.push(Box::new(wsl_clipboard::WslClipboard)),
                 "tmux" => targets.push(Box::new(tmux_buffer::TmuxBuffer)),
                 "screen" => targets.push(Box::new(screen_buffer::ScreenBuffer)),
                 "osc52" => {
@@ -368,5 +378,28 @@ mod tests {
             targets.iter().map(|t| t.name()).collect::<Vec<_>>(),
             vec!["osc52"]
         );
+    }
+
+    #[test]
+    fn parse_spec_clipboard_alias() {
+        // clipboard resolves to wsl-clipboard on WSL
+        let e = env(None, false, true, "on");
+        let (targets, unknown) = e.parse_output_spec("clipboard");
+        assert_eq!(
+            targets.iter().map(|t| t.name()).collect::<Vec<_>>(),
+            vec!["wsl-clipboard"]
+        );
+        assert!(unknown.is_empty());
+    }
+
+    #[test]
+    fn parse_spec_wsl_clipboard_explicit() {
+        let e = env(None, false, false, "on");
+        let (targets, unknown) = e.parse_output_spec("wsl-clipboard");
+        assert_eq!(
+            targets.iter().map(|t| t.name()).collect::<Vec<_>>(),
+            vec!["wsl-clipboard"]
+        );
+        assert!(unknown.is_empty());
     }
 }
