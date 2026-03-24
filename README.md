@@ -90,6 +90,11 @@ yfix [OPTIONS] [TEXT]
 | Windows (native) | Supported |
 | Windows (WSL) | Supported (via clip.exe) |
 
+| Multiplexer | Minimum version |
+|---|---|
+| tmux | 2.x or later (3.3a+ recommended; older versions use `show-option` fallback for `set-clipboard`) |
+| screen | Any |
+
 | Environment | Clipboard method |
 |---|---|
 | Local standalone | OS clipboard |
