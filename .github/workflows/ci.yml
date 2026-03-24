@@ -29,7 +29,16 @@ jobs:
       - name: Format check
         run: cargo fmt --check
 
-  cross-check:
+  brew-lint:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v6
+      - name: Style check formula
+        run: brew style Formula/yfix.rb
+      - name: Tap and audit formula
+        run: |
+          brew tap shimt/yfix https://github.com/shimt/yfix
+          brew audit yfix
     runs-on: ubuntu-latest
     strategy:
       matrix:

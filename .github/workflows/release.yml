@@ -81,3 +81,37 @@ jobs:
         with:
           files: artifacts/*
           generate_release_notes: true
+
+  update-formula:
+    needs: release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: main
+
+      - uses: actions/download-artifact@v8
+        with:
+          path: artifacts
+          merge-multiple: true
+
+      - name: Update Formula/yfix.rb
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+
+          SHA_DARWIN=$(sha256sum artifacts/yfix-aarch64-apple-darwin.tar.gz | awk '{print $1}')
+          SHA_LINUX_X86=$(sha256sum artifacts/yfix-x86_64-unknown-linux-gnu.tar.gz | awk '{print $1}')
+          SHA_LINUX_ARM=$(sha256sum artifacts/yfix-aarch64-unknown-linux-gnu.tar.gz | awk '{print $1}')
+
+          sed -i "s/^  version \".*\"/  version \"${VERSION}\"/" Formula/yfix.rb
+          sed -i "/aarch64-apple-darwin/{n;s/sha256 \".*\"/sha256 \"${SHA_DARWIN}\"/}" Formula/yfix.rb
+          sed -i "/x86_64-unknown-linux-gnu/{n;s/sha256 \".*\"/sha256 \"${SHA_LINUX_X86}\"/}" Formula/yfix.rb
+          sed -i "/aarch64-unknown-linux-gnu/{n;s/sha256 \".*\"/sha256 \"${SHA_LINUX_ARM}\"/}" Formula/yfix.rb
+
+      - name: Commit updated formula
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add Formula/yfix.rb
+          git diff --cached --quiet || git commit -m "chore: update Formula for ${GITHUB_REF_NAME}"
+          git push origin main
