@@ -13,7 +13,7 @@ use yfix::{
 };
 
 #[derive(Parser, Debug)]
-#[command(name = "yfix", about = "Clean and copy terminal text")]
+#[command(name = "yfix", about = "Clean and copy terminal text", version)]
 struct Cli {
     /// Text to clean (highest priority input source)
     text: Option<String>,
