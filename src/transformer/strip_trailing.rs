@@ -22,6 +22,11 @@ impl Transformer for StripTrailing {
             result.pop();
         }
 
+        // Single non-empty line: also trim leading whitespace (copy-mode drag offset)
+        if !result.contains('\n') {
+            result = result.trim_start().to_string();
+        }
+
         Ok(result)
     }
 }
@@ -41,5 +46,23 @@ mod tests {
     fn removes_trailing_blank_lines() {
         let t = StripTrailing;
         assert_eq!(t.transform("hello\n\n\n").unwrap(), "hello");
+    }
+
+    #[test]
+    fn single_line_trims_leading() {
+        let t = StripTrailing;
+        assert_eq!(t.transform(" hello").unwrap(), "hello");
+    }
+
+    #[test]
+    fn single_line_with_trailing_newline_trims_leading() {
+        let t = StripTrailing;
+        assert_eq!(t.transform(" hello\n").unwrap(), "hello");
+    }
+
+    #[test]
+    fn multi_line_preserves_leading() {
+        let t = StripTrailing;
+        assert_eq!(t.transform(" a\n b").unwrap(), " a\n b");
     }
 }

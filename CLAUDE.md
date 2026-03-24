@@ -68,10 +68,12 @@ docs/
 
 - Language: Rust 2021
 - Code style: `cargo fmt` (default rustfmt)
-- Documentation language: English in code, Japanese in user-facing docs/help
+- Documentation language: English (source, docs, comments, commit messages)
 - Tests: inline `#[cfg(test)] mod tests` in each module
 - New transformer: implement `Transformer` trait, add to `transformer/mod.rs` and `Processor::from_config()`
 - Diagnostics: override `transform_with_diagnostics()` only for transformers that can generate warnings
+- Knowledge placement: environment-independent items in CLAUDE.md / docs/help-ai.md, environment-dependent items (build setup, test hosts, local paths) in project memory
+- `docs/help-ai.md`: user-facing guide for AI agents (Claude Code, Gemini, etc.) to learn how to use yfix. Accessed via `yfix --help-ai`. Write for an AI reader, not a human developer.
 
 # Communication conventions
 
@@ -82,7 +84,9 @@ docs/
 # Commit conventions
 
 - Style: [Conventional Commits](https://www.conventionalcommits.org/) (`feat:`, `fix:`, `chore:`, `test:`, `refactor:`)
-- Branch: `feat/yfix-implementation` (current development), `main` (stable)
+- Versioning: [Semantic Versioning](https://semver.org/) (post v1.0.0)
+- Branching: [GitHub Flow](https://docs.github.com/en/get-started/using-github/github-flow) (post-release)
+- License: MIT OR Apache-2.0
 - Fix commits: squash into the relevant feat commit before merging
 - Use `git commit --fixup <SHA>` + `GIT_SEQUENCE_EDITOR=: git rebase --autosquash <base>` for non-interactive squash
 
@@ -93,8 +97,8 @@ docs/
 1. **Before amend/fixup, always run `git diff --cached --stat`**: verify all staged files serve the same purpose. If not, split into separate commits
 2. **Unrelated changes get their own commit**: typo fixes, unrelated refactors, etc. Exception: `cargo fmt` output goes with the source commit
 3. **When in doubt, create a new commit** over amend — splitting later is harder than squashing
-4. **Docs alongside code, but separate commits**: `docs/help-ai.md` is source (include_str!) — goes with the source commit. `CLAUDE.md` and `TODO.md` get independent commits
-5. **After committing, check TODO.md**: close resolved items. Propose new items to user when issues are found
+4. **Docs alongside code, but separate commits**: `docs/help-ai.md` is source (include_str!) — goes with the source commit. `CLAUDE.md` gets independent commits
+5. **After committing, check TODO.md** (see project memory for location): close resolved items. Propose new items to user when issues are found
 6. **PR cleanup**: `git rebase --autosquash` to consolidate, verify each commit builds and tests independently
 
 # Development workflow
@@ -111,9 +115,21 @@ cargo clippy --tests -- -D warnings           # 2. lint (detect only, no --fix)
 cargo fmt --check                             # 3. verify formatting (should be no-op)
 ```
 
+## Cross-build verification
+
+Run when changes touch `#[cfg]` guards, platform-specific code, `Cargo.toml` dependencies, or output/input modules. Skip for transformer-only or docs-only changes.
+
+```sh
+# Only if `cross` is installed (check: which cross)
+cross build --target x86_64-unknown-linux-gnu 2>&1 | tail -3
+cross build --target x86_64-pc-windows-gnu 2>&1 | tail -3
+```
+
+Targets: Linux x86_64, Windows x86_64. Verify zero warnings.
+
 # Feedback process
 
-Debug/feedback の詳細（ワークフロー、ログフォーマット、分析コマンド、warnings、known limitations）は `docs/help-ai.md` を参照。
+See `docs/help-ai.md` for details (workflow, log format, analysis commands, warnings, known limitations).
 
 # Gotchas
 
