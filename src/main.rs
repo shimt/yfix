@@ -1,6 +1,5 @@
 use anyhow::Context;
 use clap::Parser;
-use std::os::unix::io::AsFd;
 use std::path::PathBuf;
 use std::process;
 
@@ -57,7 +56,8 @@ struct Cli {
 
 /// Whether stderr is a TTY (safe to print errors)
 fn stderr_is_tty() -> bool {
-    rustix::termios::isatty(std::io::stderr().as_fd())
+    use is_terminal::IsTerminal;
+    std::io::stderr().is_terminal()
 }
 
 /// Print error to stderr only if it's a TTY
@@ -260,7 +260,7 @@ fn parse_output_spec(spec: &str, env: &Environment) -> Vec<Box<dyn OutputTarget>
             "screen" => targets.push(Box::new(ScreenBuffer)),
             "osc52" => {
                 let mode = match env.multiplexer {
-                    Some(Mux::Tmux) => Osc52Mode::TmuxPassthrough,
+                    Some(Mux::Tmux) => Osc52Mode::TmuxClientTty,
                     Some(Mux::Screen) => Osc52Mode::ScreenPassthrough,
                     None => Osc52Mode::Raw,
                 };
@@ -304,6 +304,12 @@ fn write_to_targets(
 }
 
 fn print_show_terminal(env: &Environment, wrap_width: usize, width_source: &WidthSource) {
+    eprintln!("[yfix] version: {}", env!("YFIX_VERSION"));
+    eprintln!(
+        "[yfix] os: {} {}",
+        std::env::consts::OS,
+        std::env::consts::ARCH
+    );
     let tmux = std::env::var("TMUX").unwrap_or_else(|_| "(not set)".into());
     let tmux_pane = std::env::var("TMUX_PANE").unwrap_or_else(|_| "(not set)".into());
     let sty = std::env::var("STY").unwrap_or_else(|_| "(not set)".into());
@@ -336,6 +342,7 @@ fn print_show_terminal(env: &Environment, wrap_width: usize, width_source: &Widt
     }
 
     eprintln!("[yfix] ssh: {}", env.is_ssh);
+    eprintln!("[yfix] wsl: {}", env.is_wsl);
 
     let src_label = match width_source {
         WidthSource::CliFlag => "from --width",

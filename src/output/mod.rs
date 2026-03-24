@@ -3,6 +3,7 @@ pub mod osc52;
 pub mod screen_buffer;
 pub mod stdout;
 pub mod tmux_buffer;
+pub mod wsl_clipboard;
 
 use std::process::Command;
 
@@ -21,7 +22,7 @@ fn detect_ssh(multiplexer: &Option<Multiplexer>) -> bool {
 
     if matches!(multiplexer, Some(Multiplexer::Tmux)) {
         if let Some(client_pid) = tmux_client_pid() {
-            return has_sshd_ancestor(client_pid);
+            return has_remote_ancestor(client_pid);
         }
     }
 
@@ -36,11 +37,12 @@ fn tmux_client_pid() -> Option<u32> {
         .and_then(|o| String::from_utf8(o.stdout).ok()?.trim().parse::<u32>().ok())
 }
 
-fn has_sshd_ancestor(start_pid: u32) -> bool {
+/// Check if any ancestor process is a remote access daemon (sshd, mosh-server).
+fn has_remote_ancestor(start_pid: u32) -> bool {
     let mut pid = start_pid;
     while pid > 1 {
         if let Some(name) = process_name(pid) {
-            if name == "sshd" || name.starts_with("sshd-") {
+            if name == "sshd" || name.starts_with("sshd-") || name.contains("mosh-server") {
                 return true;
             }
         }
@@ -80,13 +82,21 @@ pub trait OutputTarget {
 pub struct Environment {
     pub multiplexer: Option<Multiplexer>,
     pub is_ssh: bool,
+    pub is_wsl: bool,
     pub set_clipboard: String,
+}
+
+fn detect_wsl() -> bool {
+    std::fs::read_to_string("/proc/version")
+        .map(|s| s.to_lowercase().contains("microsoft"))
+        .unwrap_or(false)
 }
 
 impl Environment {
     pub fn detect() -> Self {
         let multiplexer = Multiplexer::detect();
         let is_ssh = detect_ssh(&multiplexer);
+        let is_wsl = detect_wsl();
         let set_clipboard = if matches!(multiplexer, Some(Multiplexer::Tmux)) {
             Multiplexer::tmux_set_clipboard()
         } else {
@@ -95,7 +105,17 @@ impl Environment {
         Self {
             multiplexer,
             is_ssh,
+            is_wsl,
             set_clipboard,
+        }
+    }
+
+    /// Select the appropriate clipboard target for the platform.
+    fn clipboard_target(&self) -> Box<dyn OutputTarget> {
+        if self.is_wsl {
+            Box::new(wsl_clipboard::WslClipboard)
+        } else {
+            Box::new(os_clipboard::OsClipboard)
         }
     }
 
@@ -106,13 +126,13 @@ impl Environment {
         match (&self.multiplexer, self.is_ssh, self.set_clipboard.as_str()) {
             (Some(Multiplexer::Tmux), false, "on") => {
                 targets.push(Box::new(tmux_buffer::TmuxBuffer));
-                targets.push(Box::new(os_clipboard::OsClipboard));
+                targets.push(self.clipboard_target());
             }
             (Some(Multiplexer::Tmux), false, "external") => {
                 targets.push(Box::new(tmux_buffer::TmuxBuffer));
-                targets.push(Box::new(os_clipboard::OsClipboard));
+                targets.push(self.clipboard_target());
                 targets.push(Box::new(Osc52 {
-                    mode: Osc52Mode::TmuxPassthrough,
+                    mode: Osc52Mode::TmuxClientTty,
                 }));
             }
             (Some(Multiplexer::Tmux), false, _) => {
@@ -121,16 +141,15 @@ impl Environment {
             (Some(Multiplexer::Tmux), true, "on" | "external") => {
                 targets.push(Box::new(tmux_buffer::TmuxBuffer));
                 targets.push(Box::new(Osc52 {
-                    mode: Osc52Mode::TmuxPassthrough,
+                    mode: Osc52Mode::TmuxClientTty,
                 }));
             }
             (Some(Multiplexer::Tmux), true, _) => {
-                // set-clipboard=off: OSC 52 not forwarded
                 targets.push(Box::new(tmux_buffer::TmuxBuffer));
             }
             (Some(Multiplexer::Screen), false, _) => {
                 targets.push(Box::new(screen_buffer::ScreenBuffer));
-                targets.push(Box::new(os_clipboard::OsClipboard));
+                targets.push(self.clipboard_target());
             }
             (Some(Multiplexer::Screen), true, _) => {
                 targets.push(Box::new(screen_buffer::ScreenBuffer));
@@ -139,7 +158,7 @@ impl Environment {
                 }));
             }
             (None, false, _) => {
-                targets.push(Box::new(os_clipboard::OsClipboard));
+                targets.push(self.clipboard_target());
             }
             (None, true, _) => {
                 targets.push(Box::new(Osc52 {

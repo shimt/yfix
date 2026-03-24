@@ -63,15 +63,19 @@ tmux output targets vary by the `set-clipboard` option. Run `yfix --show-termina
 | Environment                          | Output Targets                                       |
 |-------------------------------------|------------------------------------------------------|
 | tmux + local (`set-clipboard=on`)   | tmux-buffer + os-clipboard                           |
-| tmux + local (`set-clipboard=ext`)  | tmux-buffer + os-clipboard + osc52(tmux-passthrough) |
+| tmux + local (`set-clipboard=ext`)  | tmux-buffer + os-clipboard + osc52(tmux-client-tty) |
 | tmux + local (`set-clipboard=off`)  | tmux-buffer                                          |
-| tmux + SSH (`set-clipboard=on`)     | tmux-buffer + osc52(tmux-passthrough)                |
-| tmux + SSH (`set-clipboard=ext`)    | tmux-buffer + osc52(tmux-passthrough)                |
+| tmux + SSH (`set-clipboard=on`)     | tmux-buffer + osc52(tmux-client-tty)                |
+| tmux + SSH (`set-clipboard=ext`)    | tmux-buffer + osc52(tmux-client-tty)                |
 | tmux + SSH (`set-clipboard=off`)    | tmux-buffer                                          |
 | screen + local                      | screen-buffer + os-clipboard                         |
 | screen + SSH                        | screen-buffer + osc52(screen-passthrough)            |
 | standalone + local                  | os-clipboard                                         |
 | standalone + SSH                    | osc52                                                |
+| WSL standalone                      | wsl-clipboard (clip.exe)                             |
+| WSL + tmux (local)                  | tmux-buffer + wsl-clipboard                          |
+
+Note: WSL is detected via `/proc/version` containing "microsoft". `os-clipboard` is replaced by `wsl-clipboard` (uses `clip.exe`) since X11/Wayland is typically unavailable in WSL.
 
 ## Config File
 Location: {config_dir}/yfix/config.yaml (via `directories` crate)

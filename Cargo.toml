@@ -19,8 +19,8 @@ anstream = "1"
 base64 = { version = "0.22", features = ["std"] }
 clap = { version = "4", features = ["derive"] }
 directories = "6"
+is-terminal = "0.4"
 regex = "1"
-rustix = { version = "1", features = ["termios"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 serde_yaml = "0.9"

@@ -68,8 +68,8 @@ pub fn resolve_input(cli_text: Option<String>) -> anyhow::Result<String> {
 }
 
 fn is_tty() -> bool {
-    use std::os::unix::io::AsFd;
-    rustix::termios::isatty(std::io::stdin().as_fd())
+    use is_terminal::IsTerminal;
+    std::io::stdin().is_terminal()
 }
 
 #[cfg(test)]
