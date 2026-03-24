@@ -1,5 +1,8 @@
 # yfix
 
+[![CI](https://github.com/shimt/yfix/actions/workflows/ci.yml/badge.svg)](https://github.com/shimt/yfix/actions/workflows/ci.yml)
+[![License: MIT OR Apache-2.0](https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-blue.svg)](https://github.com/shimt/yfix#license)
+
 Clean and copy terminal text.
 
 ## Why
@@ -89,7 +92,13 @@ yfix [OPTIONS] [TEXT]
 
 ## Configuration
 
-Config file: `~/.config/yfix/config.yaml` (Linux) or `~/Library/Application Support/yfix/config.yaml` (macOS).
+Config file location:
+
+| OS | Path |
+|---|---|
+| Linux | `~/.config/yfix/config.yaml` |
+| macOS | `~/Library/Application Support/yfix/config.yaml` |
+| Windows | `%APPDATA%\yfix\config.yaml` |
 
 ```yaml
 fallback_width: 80
@@ -107,4 +116,4 @@ All transformers are enabled by default.
 
 ## License
 
-MIT OR Apache-2.0
+Licensed under either of [MIT](LICENSE-MIT) or [Apache-2.0](LICENSE-APACHE) at your option.
