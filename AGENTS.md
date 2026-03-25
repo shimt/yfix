@@ -52,7 +52,7 @@ src/
     os_clipboard.rs    arboard clipboard
     wsl_clipboard.rs   WSL clipboard via clip.exe
     tmux_buffer.rs     tmux load-buffer
-    screen_buffer.rs   screen writebuf
+    screen_buffer.rs   screen readbuf
     osc52.rs           OSC 52 (raw / tmux-client-tty / screen-passthrough)
 tests/
   integration.rs       CLI integration tests (5 tests)

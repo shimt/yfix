@@ -80,12 +80,10 @@ impl Multiplexer {
                         )
                     })?
                     .to_string();
-                let status = Command::new("screen")
-                    .args(["-S", &sty, "-X", "readbuf", &tmp_path])
-                    .status()?;
+                let status = screen_writebuf_cmd(&sty, &tmp_path).status()?;
                 if !status.success() {
                     return Err(MultiplexerError::CommandFailed(
-                        "screen readbuf failed".into(),
+                        "screen writebuf failed".into(),
                     ));
                 }
                 let content = std::fs::read_to_string(tmp.path())?;
@@ -127,12 +125,10 @@ impl Multiplexer {
                         )
                     })?
                     .to_string();
-                let status = Command::new("screen")
-                    .args(["-S", &sty, "-X", "writebuf", &tmp_path])
-                    .status()?;
+                let status = screen_readbuf_cmd(&sty, &tmp_path).status()?;
                 if !status.success() {
                     return Err(MultiplexerError::CommandFailed(
-                        "screen writebuf failed".into(),
+                        "screen readbuf failed".into(),
                     ));
                 }
                 Ok(())
@@ -141,9 +137,41 @@ impl Multiplexer {
     }
 }
 
+fn screen_writebuf_cmd(sty: &str, path: &str) -> Command {
+    let mut cmd = Command::new("screen");
+    cmd.args(["-S", sty, "-X", "writebuf", path]);
+    cmd
+}
+
+fn screen_readbuf_cmd(sty: &str, path: &str) -> Command {
+    let mut cmd = Command::new("screen");
+    cmd.args(["-S", sty, "-X", "readbuf", path]);
+    cmd
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn screen_read_buffer_uses_writebuf() {
+        let cmd = screen_writebuf_cmd("12345.pts-0.host", "/tmp/buf");
+        let args: Vec<_> = cmd.get_args().collect();
+        assert_eq!(
+            args,
+            ["-S", "12345.pts-0.host", "-X", "writebuf", "/tmp/buf"]
+        );
+    }
+
+    #[test]
+    fn screen_load_buffer_uses_readbuf() {
+        let cmd = screen_readbuf_cmd("12345.pts-0.host", "/tmp/buf");
+        let args: Vec<_> = cmd.get_args().collect();
+        assert_eq!(
+            args,
+            ["-S", "12345.pts-0.host", "-X", "readbuf", "/tmp/buf"]
+        );
+    }
 
     #[test]
     fn detect_tmux_when_tmux_set() {
