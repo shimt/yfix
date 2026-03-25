@@ -95,14 +95,34 @@ yfix [OPTIONS] [TEXT]
 | tmux | 2.x or later (3.3a+ recommended; older versions use `show-option` fallback for `set-clipboard`) |
 | screen | Any |
 
-| Environment | Clipboard method |
-|---|---|
-| Local standalone | OS clipboard |
-| Local + tmux | tmux buffer + OS clipboard |
-| SSH/mosh standalone | OSC 52 |
-| SSH/mosh + tmux | tmux buffer + OSC 52 (client TTY) |
-| WSL standalone | clip.exe |
-| WSL + tmux | tmux buffer + clip.exe |
+### Input source & Output targets
+
+yfix reads input in this priority order:
+
+| Priority | Condition | Input source |
+|---|---|---|
+| 1 | CLI argument: `yfix "text"` | argument |
+| 2 | stdin is a pipe | stdin |
+| 3 | Inside tmux/screen (no pipe) | multiplexer paste buffer |
+
+If none of the above apply, yfix exits with an error.
+
+| Environment | tmux `set-clipboard` | Output targets |
+|---|---|---|
+| Local standalone | — | OS clipboard |
+| Local + tmux | `on` (default) | tmux buffer + OS clipboard |
+| Local + tmux | `external` | tmux buffer + OS clipboard + OSC 52 (client TTY) |
+| Local + tmux | `off` | tmux buffer only |
+| Local + screen | — | screen buffer + OS clipboard |
+| SSH/mosh standalone | — | OSC 52 |
+| SSH/mosh + tmux | `on` / `external` | tmux buffer + OSC 52 (client TTY) |
+| SSH/mosh + tmux | `off` | tmux buffer only |
+| SSH/mosh + screen | — | screen buffer + OSC 52 (screen passthrough) |
+| WSL standalone | — | clip.exe |
+| WSL + tmux | `on` (default) | tmux buffer + clip.exe |
+| WSL + tmux | `external` | tmux buffer + clip.exe + OSC 52 (client TTY) |
+| WSL + tmux | `off` | tmux buffer only |
+| WSL + screen | — | screen buffer + clip.exe |
 
 ## Configuration
 
