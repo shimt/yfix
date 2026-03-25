@@ -137,12 +137,12 @@ brew style Formula/yfix.rb                    # 4. formula style (macOS only, sk
 Run when changes touch `#[cfg]` guards, platform-specific code, `Cargo.toml` dependencies, or output/input modules. Skip for transformer-only or docs-only changes.
 
 ```sh
-# Only if `cross` is installed (check: which cross)
-cross build --target x86_64-unknown-linux-gnu 2>&1 | tail -3
-cross build --target x86_64-pc-windows-gnu 2>&1 | tail -3
+rustup target add aarch64-unknown-linux-gnu x86_64-pc-windows-msvc
+cargo check --target aarch64-unknown-linux-gnu 2>&1 | tail -3
+cargo check --target x86_64-pc-windows-msvc 2>&1 | tail -3
 ```
 
-Targets: Linux x86_64, Windows x86_64. Verify zero warnings.
+Targets: Linux ARM64, Windows x86_64. Verify zero warnings.
 
 # Feedback process
 
