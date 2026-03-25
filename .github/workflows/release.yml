@@ -22,31 +22,28 @@ jobs:
           - os: ubuntu-latest
             target: x86_64-unknown-linux-gnu
             artifact: yfix-x86_64-unknown-linux-gnu.tar.gz
-            cross: false
-          - os: ubuntu-latest
+          - os: ubuntu-24.04-arm
             target: aarch64-unknown-linux-gnu
             artifact: yfix-aarch64-unknown-linux-gnu.tar.gz
-            cross: true
-          - os: ubuntu-latest
-            target: x86_64-pc-windows-gnu
-            artifact: yfix-x86_64-pc-windows-gnu.zip
-            cross: true
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            artifact: yfix-x86_64-pc-windows-msvc.zip
+          - os: windows-latest
+            target: aarch64-pc-windows-msvc
+            artifact: yfix-aarch64-pc-windows-msvc.zip
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v6
       - uses: dtolnay/rust-toolchain@stable
 
-      - name: Install cross
-        if: matrix.cross == true
-        run: cargo install cross --locked
+      - uses: Swatinem/rust-cache@v2
 
-      - name: Build (native)
-        if: matrix.cross != true
+      - name: Add ARM target
+        if: matrix.target == 'aarch64-pc-windows-msvc'
+        run: rustup target add aarch64-pc-windows-msvc
+
+      - name: Build
         run: cargo build --release --target ${{ matrix.target }}
-
-      - name: Build (cross)
-        if: matrix.cross == true
-        run: cross build --release --target ${{ matrix.target }}
 
       - name: Package (tar.gz)
         if: "!contains(matrix.artifact, '.zip')"
@@ -57,10 +54,8 @@ jobs:
 
       - name: Package (zip)
         if: contains(matrix.artifact, '.zip')
-        run: |
-          cd target/${{ matrix.target }}/release
-          zip ../../../${{ matrix.artifact }} yfix.exe
-          cd ../../..
+        shell: pwsh
+        run: Compress-Archive "target/${{ matrix.target }}/release/yfix.exe" "${{ matrix.artifact }}"
 
       - uses: actions/upload-artifact@v4
         with:
