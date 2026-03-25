@@ -120,9 +120,8 @@ When bumping the version, update **all** of the following:
 
 1. `Cargo.toml` — `version = "x.y.z"`
 2. `cargo build` (or `cargo check`) — updates `Cargo.lock`
-3. `Formula/yfix.rb` — `version "x.y.z"` and sha256 hashes
 
-> **Note**: sha256 hashes in `Formula/yfix.rb` are auto-updated by the `update-formula` job in `release.yml` after each tagged release. Manual update is only needed when testing the formula before tagging.
+> **Do NOT manually update `Formula/yfix.rb`** — the `update-formula` job in `release.yml` auto-updates all URLs and sha256 hashes after each tagged release. Manually bumping only the URLs (without valid sha256 values) will cause `brew install` to fail.
 
 # Pre-commit
 
