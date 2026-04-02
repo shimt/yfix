@@ -28,7 +28,10 @@ impl Processor {
             transformers.push(Box::new(StripLineNumbers));
         }
         if tc.join_wrapped {
-            transformers.push(Box::new(JoinWrapped { wrap_width }));
+            transformers.push(Box::new(JoinWrapped {
+                wrap_width,
+                skip_table_lines: tc.skip_table_lines,
+            }));
         }
         if tc.dedent {
             transformers.push(Box::new(Dedent));

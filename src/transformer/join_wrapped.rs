@@ -45,17 +45,29 @@ fn starts_with_list_prefix(line: &str) -> bool {
     false
 }
 
-pub struct JoinWrapped {
-    pub wrap_width: usize,
+/// Returns true if the line contains any Box Drawing character (U+2500–U+257F).
+fn contains_box_drawing(line: &str) -> bool {
+    line.chars().any(|c| ('\u{2500}'..='\u{257F}').contains(&c))
 }
 
-fn join_inner(text: &str, wrap_width: usize, mut warnings: Option<&mut Vec<Warning>>) -> String {
+pub struct JoinWrapped {
+    pub wrap_width: usize,
+    pub skip_table_lines: bool,
+}
+
+fn join_inner(
+    text: &str,
+    wrap_width: usize,
+    skip_table_lines: bool,
+    mut warnings: Option<&mut Vec<Warning>>,
+) -> String {
     let lines: Vec<&str> = text.lines().collect();
     let mut result = Vec::new();
     let mut i = 0;
     let threshold = wrap_width.saturating_sub(2);
     let relaxed = wrap_width / 2;
     let near_miss_low = wrap_width * 70 / 100;
+    let is_table = |line: &str| skip_table_lines && contains_box_drawing(line);
 
     while i < lines.len() {
         let line = lines[i];
@@ -67,7 +79,13 @@ fn join_inner(text: &str, wrap_width: usize, mut warnings: Option<&mut Vec<Warni
             .map(|l| starts_with_list_prefix(l))
             .unwrap_or(false);
 
-        if width >= threshold && next_is_non_empty && !next_is_list {
+        let next_line = lines.get(i + 1).copied().unwrap_or("");
+        if width >= threshold
+            && next_is_non_empty
+            && !next_is_list
+            && !is_table(line)
+            && !is_table(next_line)
+        {
             let mut joined = line.to_string();
             let mut j = i + 1;
             loop {
@@ -100,7 +118,12 @@ fn join_inner(text: &str, wrap_width: usize, mut warnings: Option<&mut Vec<Warni
                     }
                 }
 
-                if seg_width >= relaxed && next_exists && !next_is_list {
+                let next_is_table = if j < lines.len() {
+                    is_table(lines[j])
+                } else {
+                    false
+                };
+                if seg_width >= relaxed && next_exists && !next_is_list && !next_is_table {
                     continue;
                 }
                 break;
@@ -110,7 +133,11 @@ fn join_inner(text: &str, wrap_width: usize, mut warnings: Option<&mut Vec<Warni
         } else {
             // Track near misses
             if let Some(ref mut w) = warnings {
-                if next_is_non_empty && width >= near_miss_low && width < threshold {
+                if next_is_non_empty
+                    && width >= near_miss_low
+                    && width < threshold
+                    && !is_table(line)
+                {
                     w.push(Warning::JoinNearMiss {
                         line_index: i,
                         width,
@@ -136,7 +163,12 @@ impl Transformer for JoinWrapped {
     }
 
     fn transform(&self, text: &str) -> Result<String, TransformerError> {
-        Ok(join_inner(text, self.wrap_width, None))
+        Ok(join_inner(
+            text,
+            self.wrap_width,
+            self.skip_table_lines,
+            None,
+        ))
     }
 
     fn transform_with_diagnostics(
@@ -144,7 +176,12 @@ impl Transformer for JoinWrapped {
         text: &str,
     ) -> Result<(String, TransformDiagnostics), TransformerError> {
         let mut warnings = Vec::new();
-        let result = join_inner(text, self.wrap_width, Some(&mut warnings));
+        let result = join_inner(
+            text,
+            self.wrap_width,
+            self.skip_table_lines,
+            Some(&mut warnings),
+        );
         Ok((result, TransformDiagnostics { warnings }))
     }
 }
@@ -156,7 +193,10 @@ mod tests {
 
     #[test]
     fn joins_wrapped_ascii_line() {
-        let t = JoinWrapped { wrap_width: 20 };
+        let t = JoinWrapped {
+            wrap_width: 20,
+            skip_table_lines: true,
+        };
         let input = "12345678901234567890\ncontinuation";
         let result = t.transform(input).unwrap();
         assert_eq!(result, "12345678901234567890 continuation");
@@ -164,7 +204,10 @@ mod tests {
 
     #[test]
     fn does_not_join_when_next_line_empty() {
-        let t = JoinWrapped { wrap_width: 20 };
+        let t = JoinWrapped {
+            wrap_width: 20,
+            skip_table_lines: true,
+        };
         let input = "12345678901234567890\n\nnext paragraph";
         let result = t.transform(input).unwrap();
         assert!(result.contains('\n'));
@@ -172,7 +215,10 @@ mod tests {
 
     #[test]
     fn does_not_join_short_line() {
-        let t = JoinWrapped { wrap_width: 80 };
+        let t = JoinWrapped {
+            wrap_width: 80,
+            skip_table_lines: true,
+        };
         let input = "short line\nnext line";
         let result = t.transform(input).unwrap();
         assert_eq!(result, "short line\nnext line");
@@ -180,7 +226,10 @@ mod tests {
 
     #[test]
     fn joins_cjk_line_at_width_minus_one() {
-        let t = JoinWrapped { wrap_width: 21 };
+        let t = JoinWrapped {
+            wrap_width: 21,
+            skip_table_lines: true,
+        };
         let input = "あああああああああああ\ncontinuation";
         let result = t.transform(input).unwrap();
         assert!(result.starts_with("あああああああああああcontinuation"));
@@ -188,7 +237,10 @@ mod tests {
 
     #[test]
     fn joins_with_tolerance_of_2() {
-        let t = JoinWrapped { wrap_width: 20 };
+        let t = JoinWrapped {
+            wrap_width: 20,
+            skip_table_lines: true,
+        };
         let input = "123456789012345678\ncontinuation";
         let result = t.transform(input).unwrap();
         assert_eq!(result, "123456789012345678 continuation");
@@ -196,7 +248,10 @@ mod tests {
 
     #[test]
     fn inserts_space_at_join_seam() {
-        let t = JoinWrapped { wrap_width: 20 };
+        let t = JoinWrapped {
+            wrap_width: 20,
+            skip_table_lines: true,
+        };
         let input = "12345678901234567890\n   continuation";
         let result = t.transform(input).unwrap();
         assert_eq!(result, "12345678901234567890 continuation");
@@ -204,7 +259,10 @@ mod tests {
 
     #[test]
     fn no_extra_space_when_line_ends_with_space() {
-        let t = JoinWrapped { wrap_width: 20 };
+        let t = JoinWrapped {
+            wrap_width: 20,
+            skip_table_lines: true,
+        };
         let input = "1234567890123456789 \n   continuation";
         let result = t.transform(input).unwrap();
         assert_eq!(result, "1234567890123456789 continuation");
@@ -212,7 +270,10 @@ mod tests {
 
     #[test]
     fn no_space_between_cjk_chars() {
-        let t = JoinWrapped { wrap_width: 20 };
+        let t = JoinWrapped {
+            wrap_width: 20,
+            skip_table_lines: true,
+        };
         let input = "ああああああああああ\nいいいい";
         let result = t.transform(input).unwrap();
         assert_eq!(result, "ああああああああああいいいい");
@@ -220,7 +281,10 @@ mod tests {
 
     #[test]
     fn no_space_when_cjk_meets_ascii() {
-        let t = JoinWrapped { wrap_width: 20 };
+        let t = JoinWrapped {
+            wrap_width: 20,
+            skip_table_lines: true,
+        };
         let input = "ああああああああああ\ncontinuation";
         let result = t.transform(input).unwrap();
         assert_eq!(result, "ああああああああああcontinuation");
@@ -228,7 +292,10 @@ mod tests {
 
     #[test]
     fn no_space_when_ascii_meets_cjk() {
-        let t = JoinWrapped { wrap_width: 20 };
+        let t = JoinWrapped {
+            wrap_width: 20,
+            skip_table_lines: true,
+        };
         let input = "12345678901234567890\nああ";
         let result = t.transform(input).unwrap();
         assert_eq!(result, "12345678901234567890ああ");
@@ -236,7 +303,10 @@ mod tests {
 
     #[test]
     fn joins_multiple_wraps() {
-        let t = JoinWrapped { wrap_width: 10 };
+        let t = JoinWrapped {
+            wrap_width: 10,
+            skip_table_lines: true,
+        };
         let input = "1234567890\nabcdefghij\nklmnopqrst\nend";
         let result = t.transform(input).unwrap();
         assert_eq!(result, "1234567890 abcdefghij klmnopqrst end");
@@ -244,7 +314,10 @@ mod tests {
 
     #[test]
     fn joins_multiple_wraps_then_stops() {
-        let t = JoinWrapped { wrap_width: 10 };
+        let t = JoinWrapped {
+            wrap_width: 10,
+            skip_table_lines: true,
+        };
         let input = "1234567890\nabcdefghij\nend\nshort";
         let result = t.transform(input).unwrap();
         assert_eq!(result, "1234567890 abcdefghij end\nshort");
@@ -252,7 +325,10 @@ mod tests {
 
     #[test]
     fn joins_word_wrapped_continuations() {
-        let t = JoinWrapped { wrap_width: 20 };
+        let t = JoinWrapped {
+            wrap_width: 20,
+            skip_table_lines: true,
+        };
         let input = "12345678901234567890\nword wrapped at\nboundary end";
         let result = t.transform(input).unwrap();
         assert_eq!(result, "12345678901234567890 word wrapped at boundary end");
@@ -260,7 +336,10 @@ mod tests {
 
     #[test]
     fn stops_at_very_short_continuation() {
-        let t = JoinWrapped { wrap_width: 20 };
+        let t = JoinWrapped {
+            wrap_width: 20,
+            skip_table_lines: true,
+        };
         let input = "12345678901234567890\nword wrap\nshrt\nnext line";
         let result = t.transform(input).unwrap();
         assert_eq!(result, "12345678901234567890 word wrap\nshrt\nnext line");
@@ -268,7 +347,10 @@ mod tests {
 
     #[test]
     fn diagnostics_near_miss() {
-        let t = JoinWrapped { wrap_width: 20 };
+        let t = JoinWrapped {
+            wrap_width: 20,
+            skip_table_lines: true,
+        };
         // Line width 15 = 75% of 20, threshold=18, near_miss_low=14
         let input = "123456789012345\nnext line";
         let (_, diag) = t.transform_with_diagnostics(input).unwrap();
@@ -280,7 +362,10 @@ mod tests {
 
     #[test]
     fn does_not_join_list_items_unordered() {
-        let t = JoinWrapped { wrap_width: 20 };
+        let t = JoinWrapped {
+            wrap_width: 20,
+            skip_table_lines: true,
+        };
         let input = "12345678901234567890\n- item one\n- item two";
         let result = t.transform(input).unwrap();
         assert_eq!(result, "12345678901234567890\n- item one\n- item two");
@@ -288,7 +373,10 @@ mod tests {
 
     #[test]
     fn does_not_join_list_items_ordered() {
-        let t = JoinWrapped { wrap_width: 20 };
+        let t = JoinWrapped {
+            wrap_width: 20,
+            skip_table_lines: true,
+        };
         let input = "12345678901234567890\n1. first item\n2. second item";
         let result = t.transform(input).unwrap();
         assert_eq!(
@@ -299,7 +387,10 @@ mod tests {
 
     #[test]
     fn does_not_join_indented_list_items() {
-        let t = JoinWrapped { wrap_width: 20 };
+        let t = JoinWrapped {
+            wrap_width: 20,
+            skip_table_lines: true,
+        };
         let input = "12345678901234567890\n  - sub item one\n  - sub item two";
         let result = t.transform(input).unwrap();
         assert_eq!(
@@ -310,7 +401,10 @@ mod tests {
 
     #[test]
     fn does_not_join_blockquote() {
-        let t = JoinWrapped { wrap_width: 20 };
+        let t = JoinWrapped {
+            wrap_width: 20,
+            skip_table_lines: true,
+        };
         let input = "12345678901234567890\n> quoted text\n> more quoted";
         let result = t.transform(input).unwrap();
         assert_eq!(result, "12345678901234567890\n> quoted text\n> more quoted");
@@ -318,7 +412,10 @@ mod tests {
 
     #[test]
     fn breaks_continuation_at_list_item() {
-        let t = JoinWrapped { wrap_width: 20 };
+        let t = JoinWrapped {
+            wrap_width: 20,
+            skip_table_lines: true,
+        };
         let input = "12345678901234567890\nword wrapped at\n- list starts here";
         let result = t.transform(input).unwrap();
         assert_eq!(
@@ -329,7 +426,10 @@ mod tests {
 
     #[test]
     fn long_list_item_joins_own_wrap() {
-        let t = JoinWrapped { wrap_width: 20 };
+        let t = JoinWrapped {
+            wrap_width: 20,
+            skip_table_lines: true,
+        };
         let input = "- abcdefghij1234567\ncontinuation text";
         let result = t.transform(input).unwrap();
         assert_eq!(result, "- abcdefghij1234567 continuation text");
@@ -337,7 +437,10 @@ mod tests {
 
     #[test]
     fn does_not_join_plus_list_items() {
-        let t = JoinWrapped { wrap_width: 20 };
+        let t = JoinWrapped {
+            wrap_width: 20,
+            skip_table_lines: true,
+        };
         let input = "12345678901234567890\n+ item one\n+ item two";
         let result = t.transform(input).unwrap();
         assert_eq!(result, "12345678901234567890\n+ item one\n+ item two");
@@ -345,7 +448,10 @@ mod tests {
 
     #[test]
     fn diagnostics_relaxed_used() {
-        let t = JoinWrapped { wrap_width: 20 };
+        let t = JoinWrapped {
+            wrap_width: 20,
+            skip_table_lines: true,
+        };
         // First line hits threshold (20 >= 18), continuation uses relaxed (15 >= 10)
         let input = "12345678901234567890\nword wrapped at\nend";
         let (_, diag) = t.transform_with_diagnostics(input).unwrap();
@@ -353,5 +459,16 @@ mod tests {
             .warnings
             .iter()
             .any(|w| matches!(w, Warning::JoinRelaxedUsed { .. })));
+    }
+
+    #[test]
+    fn does_not_join_table_lines() {
+        let t = JoinWrapped {
+            wrap_width: 90,
+            skip_table_lines: true,
+        };
+        let input = "  \u{250C}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{252C}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{252C}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2500}\u{2510}\n  \u{2502}  #  \u{2502} \u{30B3}\u{30DF}\u{30C3}\u{30C8} \u{2502}                              \u{5185}\u{5BB9}                               \u{2502}";
+        let result = t.transform(input).unwrap();
+        assert!(result.contains('\n'), "table lines should not be joined");
     }
 }
