@@ -107,6 +107,7 @@ mod tests {
                 strip_trailing: false,
                 compress_blank: false,
                 strip_prompt: false,
+                skip_table_lines: true,
             },
         };
         let p = Processor::from_config(&config, 80);
