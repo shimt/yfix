@@ -471,4 +471,52 @@ mod tests {
         let result = t.transform(input).unwrap();
         assert!(result.contains('\n'), "table lines should not be joined");
     }
+
+    #[test]
+    fn no_near_miss_warning_for_table_lines() {
+        let t = JoinWrapped {
+            wrap_width: 90,
+            skip_table_lines: true,
+        };
+        // Table line at 86 chars wide = 95% of 90 (in near-miss range)
+        let input = "  ┌─────┬──────────┬─────────────────────────────────────────────────────────────────┐\n  │ next │";
+        let (_, diag) = t.transform_with_diagnostics(input).unwrap();
+        assert!(
+            !diag
+                .warnings
+                .iter()
+                .any(|w| matches!(w, Warning::JoinNearMiss { .. })),
+            "table lines should not produce near-miss warnings"
+        );
+    }
+
+    #[test]
+    fn breaks_continuation_at_table_line() {
+        let t = JoinWrapped {
+            wrap_width: 20,
+            skip_table_lines: true,
+        };
+        let input = "12345678901234567890\nword wrapped at\n  ├─────┼──────────┤";
+        let result = t.transform(input).unwrap();
+        assert_eq!(
+            result,
+            "12345678901234567890 word wrapped at\n  ├─────┼──────────┤"
+        );
+    }
+
+    #[test]
+    fn config_skip_table_lines_disabled_joins_table_lines() {
+        let t = JoinWrapped {
+            wrap_width: 20,
+            skip_table_lines: false,
+        };
+        // With skip_table_lines=false, table lines are treated as normal text
+        let input = "┌──────────────────┐\n│ data             │";
+        let result = t.transform(input).unwrap();
+        // Should join because line width (20) >= threshold (18) and skip is disabled
+        assert!(
+            !result.contains('\n'),
+            "with skip disabled, table lines should be joined"
+        );
+    }
 }
