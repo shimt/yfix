@@ -137,6 +137,7 @@ fn join_inner(
                     && width >= near_miss_low
                     && width < threshold
                     && !is_table(line)
+                    && !is_table(next_line)
                 {
                     w.push(Warning::JoinNearMiss {
                         line_index: i,
@@ -501,6 +502,24 @@ mod tests {
         assert_eq!(
             result,
             "12345678901234567890 word wrapped at\n  ├─────┼──────────┤"
+        );
+    }
+
+    #[test]
+    fn no_near_miss_warning_when_next_line_is_table() {
+        let t = JoinWrapped {
+            wrap_width: 20,
+            skip_table_lines: true,
+        };
+        // Line width 15 = 75% of 20 (in near-miss range), next line is a table line
+        let input = "123456789012345\n  ├─────┼──────┤";
+        let (_, diag) = t.transform_with_diagnostics(input).unwrap();
+        assert!(
+            !diag
+                .warnings
+                .iter()
+                .any(|w| matches!(w, Warning::JoinNearMiss { .. })),
+            "no near-miss warning when next line is a table line"
         );
     }
 
