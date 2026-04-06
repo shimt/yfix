@@ -144,6 +144,7 @@ transformers:
   strip_trailing: true
   compress_blank: true
   strip_prompt: true
+  skip_table_lines: true
 ```
 
 All transformers are enabled by default.
