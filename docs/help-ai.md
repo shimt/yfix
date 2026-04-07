@@ -129,3 +129,4 @@ done
 
 - **Application word-wrap**: Word-boundary wrapping (e.g., Claude Code) produces lines much shorter than pane width — `join_wrapped` cannot detect these.
 - **Line number gutter + wrap**: After `strip_line_numbers` removes prefixes, remaining lines may be too short for `join_wrapped` threshold.
+- **Box Drawing table detection**: Only checks for Unicode Box Drawing characters (U+2500–U+257F). Tables drawn with ASCII (`+`, `-`, `|`) or other characters are not detected.

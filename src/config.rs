@@ -18,6 +18,8 @@ pub struct TransformerConfig {
     pub compress_blank: bool,
     #[serde(default = "default_true")]
     pub strip_prompt: bool,
+    #[serde(default = "default_true")]
+    pub skip_table_lines: bool,
 }
 
 fn default_true() -> bool {
@@ -34,6 +36,7 @@ impl Default for TransformerConfig {
             strip_trailing: true,
             compress_blank: true,
             strip_prompt: true,
+            skip_table_lines: true,
         }
     }
 }
@@ -122,6 +125,22 @@ mod tests {
         assert_eq!(c.fallback_width, 120);
         assert!(!c.transformers.strip_ansi);
         assert!(c.transformers.join_wrapped);
+    }
+
+    #[test]
+    fn default_config_has_skip_table_lines_enabled() {
+        let c = Config::default();
+        assert!(c.transformers.skip_table_lines);
+    }
+
+    #[test]
+    fn load_skip_table_lines_disabled() {
+        use std::io::Write;
+        let mut f = tempfile::NamedTempFile::new().unwrap();
+        writeln!(f, "transformers:\n  skip_table_lines: false").unwrap();
+        let result = Config::load(Some(&f.path().to_path_buf()));
+        assert!(result.is_ok());
+        assert!(!result.unwrap().transformers.skip_table_lines);
     }
 
     #[test]
