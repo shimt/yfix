@@ -30,7 +30,14 @@ fn strip_line_numbers(c: &mut Criterion) {
 }
 
 fn join_wrapped(c: &mut Criterion) {
-    bench_transformer(c, "join_wrapped", &JoinWrapped { wrap_width: 80 });
+    bench_transformer(
+        c,
+        "join_wrapped",
+        &JoinWrapped {
+            wrap_width: 80,
+            skip_table_lines: true,
+        },
+    );
 }
 
 fn dedent(c: &mut Criterion) {
