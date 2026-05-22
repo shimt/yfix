@@ -72,7 +72,7 @@ docs/
 
 # Conventions
 
-- Language: Rust 2021
+- Language: Rust 2024
 - Code style: `cargo fmt` (default rustfmt)
 - Documentation language: English (source, docs, comments, commit messages)
 - Tests: inline `#[cfg(test)] mod tests` in each module
