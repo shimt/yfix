@@ -109,13 +109,14 @@ fn join_inner(
                 };
 
                 // Track relaxed threshold usage
-                if let Some(ref mut w) = warnings {
-                    if seg_width < threshold && seg_width >= relaxed {
-                        w.push(Warning::JoinRelaxedUsed {
-                            line_index: j - 1,
-                            width: seg_width,
-                        });
-                    }
+                if let Some(ref mut w) = warnings
+                    && seg_width < threshold
+                    && seg_width >= relaxed
+                {
+                    w.push(Warning::JoinRelaxedUsed {
+                        line_index: j - 1,
+                        width: seg_width,
+                    });
                 }
 
                 let next_is_table = if j < lines.len() {
@@ -132,19 +133,18 @@ fn join_inner(
             i = j;
         } else {
             // Track near misses
-            if let Some(ref mut w) = warnings {
-                if next_is_non_empty
-                    && width >= near_miss_low
-                    && width < threshold
-                    && !is_table(line)
-                    && !is_table(next_line)
-                {
-                    w.push(Warning::JoinNearMiss {
-                        line_index: i,
-                        width,
-                        wrap_width,
-                    });
-                }
+            if let Some(ref mut w) = warnings
+                && next_is_non_empty
+                && width >= near_miss_low
+                && width < threshold
+                && !is_table(line)
+                && !is_table(next_line)
+            {
+                w.push(Warning::JoinNearMiss {
+                    line_index: i,
+                    width,
+                    wrap_width,
+                });
             }
             result.push(line.to_string());
             i += 1;
@@ -355,10 +355,11 @@ mod tests {
         // Line width 15 = 75% of 20, threshold=18, near_miss_low=14
         let input = "123456789012345\nnext line";
         let (_, diag) = t.transform_with_diagnostics(input).unwrap();
-        assert!(diag
-            .warnings
-            .iter()
-            .any(|w| matches!(w, Warning::JoinNearMiss { .. })));
+        assert!(
+            diag.warnings
+                .iter()
+                .any(|w| matches!(w, Warning::JoinNearMiss { .. }))
+        );
     }
 
     #[test]
@@ -456,10 +457,11 @@ mod tests {
         // First line hits threshold (20 >= 18), continuation uses relaxed (15 >= 10)
         let input = "12345678901234567890\nword wrapped at\nend";
         let (_, diag) = t.transform_with_diagnostics(input).unwrap();
-        assert!(diag
-            .warnings
-            .iter()
-            .any(|w| matches!(w, Warning::JoinRelaxedUsed { .. })));
+        assert!(
+            diag.warnings
+                .iter()
+                .any(|w| matches!(w, Warning::JoinRelaxedUsed { .. }))
+        );
     }
 
     #[test]
