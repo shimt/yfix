@@ -5,18 +5,18 @@ class Yfix < Formula
 
   on_macos do
     if Hardware::CPU.arm?
-      url "https://github.com/shimt/yfix/releases/download/v1.3.1/yfix-aarch64-apple-darwin.tar.gz"
-      sha256 "95b4221b63b8d26d34efbf30117abc235435f4f2fac0ef4550dd3361757bc7e4"
+      url "https://github.com/shimt/yfix/releases/download/v1.3.2/yfix-aarch64-apple-darwin.tar.gz"
+      sha256 "1e0fe7784fde5d3670aa68c312661f8fdf78d2cc8a65d2f48792501e8b5480e6"
     end
   end
 
   on_linux do
     if Hardware::CPU.intel?
-      url "https://github.com/shimt/yfix/releases/download/v1.3.1/yfix-x86_64-unknown-linux-gnu.tar.gz"
-      sha256 "9ea3a10aa086d8cf0233d7dfe5e1f6e6e39d9e45d44e4e94631b32d5e531ff04"
+      url "https://github.com/shimt/yfix/releases/download/v1.3.2/yfix-x86_64-unknown-linux-gnu.tar.gz"
+      sha256 "a11218884e6f2f6817d31de1ddf597d7cea976c8a4883f818e2117951700e6a0"
     elsif Hardware::CPU.arm?
-      url "https://github.com/shimt/yfix/releases/download/v1.3.1/yfix-aarch64-unknown-linux-gnu.tar.gz"
-      sha256 "ecc30098374703c65a630280b993c6fe2bf58ec2cae10516e169c184bfd87ba7"
+      url "https://github.com/shimt/yfix/releases/download/v1.3.2/yfix-aarch64-unknown-linux-gnu.tar.gz"
+      sha256 "04fff9d4e3f786c039229d2fc3d8365f8ceb6daf8a2e883c9c5aed29c5aa0efa"
     end
   end
 
