@@ -1,8 +1,8 @@
-use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
+use criterion::{BenchmarkId, Criterion, criterion_group, criterion_main};
 use yfix::transformer::{
-    compress_blank::CompressBlank, dedent::Dedent, join_wrapped::JoinWrapped,
+    Transformer, compress_blank::CompressBlank, dedent::Dedent, join_wrapped::JoinWrapped,
     strip_ansi::StripAnsi, strip_line_numbers::StripLineNumbers, strip_prompt::StripPrompt,
-    strip_trailing::StripTrailing, Transformer,
+    strip_trailing::StripTrailing,
 };
 
 static FIXTURES: &[(&str, &str)] = &[
@@ -30,7 +30,14 @@ fn strip_line_numbers(c: &mut Criterion) {
 }
 
 fn join_wrapped(c: &mut Criterion) {
-    bench_transformer(c, "join_wrapped", &JoinWrapped { wrap_width: 80 });
+    bench_transformer(
+        c,
+        "join_wrapped",
+        &JoinWrapped {
+            wrap_width: 80,
+            skip_table_lines: true,
+        },
+    );
 }
 
 fn dedent(c: &mut Criterion) {

@@ -110,13 +110,13 @@ impl Transformer for StripLineNumbers {
             });
         }
 
-        if result.partial_gutter_lines > 0 {
-            if let Some(gw) = result.gutter_width {
-                warnings.push(Warning::LineNumbersPartialGutter {
-                    gutter_width: gw,
-                    affected_lines: result.partial_gutter_lines,
-                });
-            }
+        if result.partial_gutter_lines > 0
+            && let Some(gw) = result.gutter_width
+        {
+            warnings.push(Warning::LineNumbersPartialGutter {
+                gutter_width: gw,
+                affected_lines: result.partial_gutter_lines,
+            });
         }
 
         Ok((result.text, TransformDiagnostics { warnings }))
@@ -183,10 +183,11 @@ mod tests {
         // 3 of 5 non-empty match (60%)
         let input = "  1 hello\n  2 world\n  3 foo\nno number\nalso no number";
         let (_, diag) = t.transform_with_diagnostics(input).unwrap();
-        assert!(diag
-            .warnings
-            .iter()
-            .any(|w| matches!(w, Warning::LineNumbersBorderline { .. })));
+        assert!(
+            diag.warnings
+                .iter()
+                .any(|w| matches!(w, Warning::LineNumbersBorderline { .. }))
+        );
     }
 
     #[test]
@@ -195,9 +196,10 @@ mod tests {
         // Line with gutter-width spaces but no number (continuation line)
         let input = "      94 assert!(true);\n      95 assert!(false);\n         continuation line";
         let (_, diag) = t.transform_with_diagnostics(input).unwrap();
-        assert!(diag
-            .warnings
-            .iter()
-            .any(|w| matches!(w, Warning::LineNumbersPartialGutter { .. })));
+        assert!(
+            diag.warnings
+                .iter()
+                .any(|w| matches!(w, Warning::LineNumbersPartialGutter { .. }))
+        );
     }
 }

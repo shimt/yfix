@@ -1,9 +1,9 @@
 use crate::config::Config;
 use crate::error::TransformerError;
 use crate::transformer::{
-    compress_blank::CompressBlank, dedent::Dedent, join_wrapped::JoinWrapped,
+    Transformer, Warning, compress_blank::CompressBlank, dedent::Dedent, join_wrapped::JoinWrapped,
     strip_ansi::StripAnsi, strip_line_numbers::StripLineNumbers, strip_prompt::StripPrompt,
-    strip_trailing::StripTrailing, Transformer, Warning,
+    strip_trailing::StripTrailing,
 };
 
 pub struct ProcessResult {

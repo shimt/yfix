@@ -6,7 +6,7 @@ use std::process;
 use yfix::{
     config::{self, Config},
     debug_log,
-    input::{resolve_input, resolve_width, WidthSource},
+    input::{WidthSource, resolve_input, resolve_width},
     multiplexer::Multiplexer,
     output::{Environment, OutputTarget},
     processor::Processor,
@@ -217,11 +217,7 @@ fn write_to_targets(
             had_error = true;
         }
     }
-    if had_error {
-        2
-    } else {
-        0
-    }
+    if had_error { 2 } else { 0 }
 }
 
 fn print_show_terminal(env: &Environment, wrap_width: usize, width_source: &WidthSource) {

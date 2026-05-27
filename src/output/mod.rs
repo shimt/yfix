@@ -81,10 +81,10 @@ fn detect_ssh(multiplexer: &Option<Multiplexer>, tmux_info: Option<&TmuxInfo>) -
     }
 
     if matches!(multiplexer, Some(Multiplexer::Tmux)) {
-        if let Some(info) = tmux_info {
-            if let Some(client_pid) = info.client_pid {
-                return process_tree::has_remote_ancestor(client_pid);
-            }
+        if let Some(info) = tmux_info
+            && let Some(client_pid) = info.client_pid
+        {
+            return process_tree::has_remote_ancestor(client_pid);
         }
     } else {
         // Outside tmux: walk the current process tree to detect sshd/mosh-server.
